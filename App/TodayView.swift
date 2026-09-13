@@ -21,6 +21,7 @@ struct TodayView: View {
                     progressCard
                     macroGrid
                     activityCard
+                    bodyCard
                     entriesCard
                 }
                 .padding(16)
@@ -68,11 +69,31 @@ struct TodayView: View {
                 Image(systemName: "figure.walk").font(.title2.weight(.semibold)).foregroundStyle(AppTheme.canvas).padding(12).background(AppTheme.orange, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("ACTIVITY CONTEXT").font(.caption.weight(.bold)).tracking(1).foregroundStyle(AppTheme.muted)
-                    Text(activity.steps.map { "\(Int($0)) steps · \(Int(activity.activeEnergy ?? 0)) active kcal" } ?? "Connect Apple Health for activity context").font(.subheadline.weight(.medium)).foregroundStyle(AppTheme.ink)
+                    Text(activity.steps.map { "\(Int($0)) steps · \(Int(activity.activeEnergy ?? 0)) active kcal" } ?? "Connect Apple Health to choose your data")
+                        .font(.subheadline.weight(.medium)).foregroundStyle(AppTheme.ink)
                     if let healthError { Text(healthError).font(.caption).foregroundStyle(.red) }
                 }
                 Spacer()
                 Button("Connect") { Task { await connectHealth() } }.buttonStyle(.bordered).tint(AppTheme.lime).foregroundStyle(AppTheme.canvas)
+            }
+        }
+    }
+
+    private var bodyCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("HEALTH SNAPSHOT").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(AppTheme.muted)
+                HStack {
+                    HealthMetric(label: "Basal", value: activity.basalEnergy.map { "\(Int($0)) kcal" } ?? "-" )
+                    HealthMetric(label: "Distance", value: activity.walkingDistance.map { String(format: "%.1f km", $0) } ?? "-" )
+                    HealthMetric(label: "Exercise", value: activity.exerciseMinutes.map { "\(Int($0)) min" } ?? "-" )
+                }
+                HStack {
+                    HealthMetric(label: "Weight", value: activity.weight.map { String(format: "%.1f kg", $0) } ?? "-" )
+                    HealthMetric(label: "Body fat", value: activity.bodyFatPercent.map { String(format: "%.1f%%", $0) } ?? "-" )
+                    Spacer()
+                }
+                Text("Only the types you allow in Apple Health appear here. LidlLean does not write to Health.").font(.caption).foregroundStyle(AppTheme.muted)
             }
         }
     }
@@ -90,6 +111,12 @@ struct TodayView: View {
     }
 
     private func connectHealth() async { do { try await health.requestAccess(); activity = await health.todaySnapshot(); healthError = nil } catch { healthError = error.localizedDescription } }
+}
+
+private struct HealthMetric: View {
+    let label: String
+    let value: String
+    var body: some View { VStack(alignment: .leading, spacing: 3) { Text(label.uppercased()).font(.caption2.weight(.bold)).foregroundStyle(AppTheme.muted); Text(value).font(.subheadline.weight(.bold)).foregroundStyle(AppTheme.ink) }.frame(maxWidth: .infinity, alignment: .leading) }
 }
 
 private struct MacroTile: View {

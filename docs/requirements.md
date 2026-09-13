@@ -7,7 +7,7 @@
 - Confirm imported product nutrition before creating a meal entry.
 - Log grams and meal type, then see daily calories and macros.
 - Read steps and active energy from Apple Health if authorized.
-- Generate local high-protein, lower-calorie shopping candidates.
+- Fetch the official Lidl Germany flyer page and show its current flyer validity periods, then open the official flyer in the browser. Product-level price and nutrition matching remains unavailable until Lidl provides a permitted structured feed.
 - Request a constrained, opt-in OpenRouter daily insight.
 
 ## Visual direction
