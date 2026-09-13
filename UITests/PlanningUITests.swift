@@ -17,14 +17,14 @@ final class PlanningUITests: XCTestCase {
         app.buttons["Set up my plan"].tap()
         let calories = app.textFields["weeklyCalories"]
         XCTAssertTrue(calories.waitForExistence(timeout: 10))
-        calories.tap()
-        calories.typeText(XCUIKeyboardKey.delete.rawValue + "14000")
+        replaceText(in: calories, with: "14000")
         let protein = app.textFields["dailyProtein"]
-        protein.tap()
-        protein.typeText(XCUIKeyboardKey.delete.rawValue + "150")
+        replaceText(in: protein, with: "150")
         app.swipeUp()
         let save = app.buttons["saveGoals"]
-        XCTAssertTrue(save.isEnabled)
+        let enabled = NSPredicate(format: "enabled == true")
+        expectation(for: enabled, evaluatedWith: save)
+        waitForExpectations(timeout: 5)
         save.tap()
         XCTAssertTrue(app.navigationBars["Plan"].waitForExistence(timeout: 10))
         app.swipeUp()
@@ -37,5 +37,12 @@ final class PlanningUITests: XCTestCase {
         let caloriesValue = (calories.value as? String ?? "").filter(\.isNumber)
         XCTAssertEqual(caloriesValue, "14000", "Weekly target must persist through sheet dismissal")
         XCTAssertEqual((protein.value as? String ?? "").filter(\.isNumber), "150")
+    }
+
+    private func replaceText(in field: XCUIElement, with value: String) {
+        field.tap()
+        let existingCount = (field.value as? String ?? "").count
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: max(existingCount, 1)))
+        field.typeText(value)
     }
 }
