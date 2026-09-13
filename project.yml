@@ -14,6 +14,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.alial.lidllean
         PRODUCT_NAME: LidlLean
+        GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: '5.0'
         TARGETED_DEVICE_FAMILY: '1'
         INFOPLIST_KEY_CFBundleDisplayName: LidlLean
