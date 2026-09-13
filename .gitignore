@@ -1,0 +1,10 @@
+.DS_Store
+.build/
+DerivedData/
+*.xcworkspace
+*.xcuserstate
+*.xcuserdata/
+build/
+*.ipa
+*.p12
+*.mobileprovision

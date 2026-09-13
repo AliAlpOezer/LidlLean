@@ -1,0 +1,50 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: LidlLean
+        run: xcodegen generate
+      - name: Archive unsigned device app
+        working-directory: LidlLean
+        run: >-
+          xcodebuild archive
+          -project LidlLean.xcodeproj
+          -scheme LidlLean
+          -configuration Release
+          -sdk iphoneos
+          -archivePath "$PWD/build/LidlLean.xcarchive"
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          CODE_SIGN_IDENTITY=""
+      - name: Package IPA
+        working-directory: LidlLean
+        run: |
+          mkdir -p build/Payload
+          cp -R build/LidlLean.xcarchive/Products/Applications/LidlLean.app build/Payload/
+          ditto -c -k --sequesterRsrc --keepParent build/Payload build/LidlLean-unsigned.ipa
+      - name: Verify IPA payload
+        working-directory: LidlLean
+        run: |
+          unzip -l build/LidlLean-unsigned.ipa | grep -q 'Payload/LidlLean.app/LidlLean$'
+          plutil -lint build/LidlLean.xcarchive/Products/Applications/LidlLean.app/Info.plist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LidlLean-unsigned-ipa
+          path: LidlLean/build/LidlLean-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7

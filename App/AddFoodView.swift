@@ -1,0 +1,12 @@
+import SwiftData
+import SwiftUI
+
+struct AddFoodView: View {
+    @Environment(\.modelContext) private var context
+    @State private var name = ""; @State private var barcode = ""; @State private var grams = 100.0; @State private var calories = 0.0; @State private var protein = 0.0; @State private var carbs = 0.0; @State private var fat = 0.0; @State private var kind: MealKind = .snack; @State private var message: String?; @State private var showingScanner = false
+    private let catalog = OpenFoodFactsClient()
+    var body: some View { NavigationStack { Form { Section("PRODUCT") { TextField("Name", text: $name); TextField("EAN barcode", text: $barcode).keyboardType(.numberPad); Button("Scan barcode", systemImage: "barcode.viewfinder") { showingScanner = true }; Button("Look up product") { Task { await lookup() } }; if let message { Text(message).font(.footnote).foregroundStyle(AppTheme.muted) } } ; Section("PER 100 G") { number("Calories", $calories, "kcal"); number("Protein", $protein, "g"); number("Carbohydrates", $carbs, "g"); number("Fat", $fat, "g") }; Section("LOG") { number("Amount", $grams, "g"); Picker("Meal", selection: $kind) { ForEach(MealKind.allCases) { Text($0.title).tag($0) } }; Button("Add to today") { save() }.tint(AppTheme.lime).disabled(name.isEmpty || grams <= 0) } }.scrollContentBackground(.hidden).background(AppTheme.canvas).navigationTitle("Log food").sheet(isPresented: $showingScanner) { BarcodeScanner { barcode = $0; showingScanner = false; Task { await lookup() } } } } }
+    private func number(_ title: String, _ value: Binding<Double>, _ suffix: String) -> some View { TextField(title, value: value, format: .number).keyboardType(.decimalPad).overlay(alignment: .trailing) { Text(suffix).foregroundStyle(AppTheme.muted) } }
+    private func lookup() async { do { let draft = try await catalog.lookup(barcode: barcode); name = draft.name; calories = draft.nutrientsPer100g.calories; protein = draft.nutrientsPer100g.protein; carbs = draft.nutrientsPer100g.carbohydrates; fat = draft.nutrientsPer100g.fat; message = "Imported from Open Food Facts. Check the label." } catch { message = error.localizedDescription } }
+    private func save() { let food = Food(name: name, barcode: barcode.isEmpty ? nil : barcode, nutrientsPer100g: Nutrients(calories: calories, protein: protein, carbohydrates: carbs, fat: fat), source: barcode.isEmpty ? .manual : .openFoodFacts); context.insert(food); context.insert(MealEntry(food: food, grams: grams, kind: kind)); message = "Added to today."; name = ""; barcode = "" }
+}
