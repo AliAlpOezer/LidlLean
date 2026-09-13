@@ -9,8 +9,8 @@ struct PlannerSettingsView: View {
     @AppStorage("plannerAvoid") private var storedAvoid = ""
     @AppStorage("weeklyWeightLossGoal") private var storedWeightGoal = 1.0
     @State private var weightGoal = 1.0
-    @State private var weeklyCalories = 0.0
-    @State private var dailyProtein = 0.0
+    @State private var weeklyCalories = 14_000.0
+    @State private var dailyProtein = 140.0
     @State private var avoid = ""
     @State private var errorMessage: String?
 
@@ -21,7 +21,7 @@ struct PlannerSettingsView: View {
                     LabeledContent("Weekly loss goal (kg)") { TextField("kg", value: $weightGoal, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing) }
                     LabeledContent("Weekly calories") { TextField("kcal", value: $weeklyCalories, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).accessibilityIdentifier("weeklyCalories") }
                     LabeledContent("Daily protein") { TextField("g", value: $dailyProtein, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).accessibilityIdentifier("dailyProtein") }
-                    Text("Weekly calories ÷ 7 sets the daily intake target. Expenditure is displayed separately and does not automatically increase your food budget.")
+                    Text("The starting values are editable. Weekly calories ÷ 7 sets the daily intake target. Expenditure is displayed separately and does not automatically increase your food budget.")
                 }
                 Section("Recommendation preferences") {
                     TextField("Avoid these name fragments, separated by commas", text: $avoid)
@@ -33,8 +33,8 @@ struct PlannerSettingsView: View {
             .navigationTitle("Weekly goal")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
             .onAppear {
-                weeklyCalories = configured ? (goals.first?.calorieTarget ?? 0) * 7 : 0
-                dailyProtein = configured ? goals.first?.proteinTarget ?? 0 : 0
+                weeklyCalories = (goals.first?.calorieTarget ?? 2_000) * 7
+                dailyProtein = goals.first?.proteinTarget ?? 140
                 avoid = storedAvoid
                 weightGoal = storedWeightGoal
             }
