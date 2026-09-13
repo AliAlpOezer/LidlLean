@@ -14,7 +14,7 @@ Windows is the development machine. GitHub Actions supplies the temporary macOS/
 
 No Apple certificate, provisioning profile, or Apple password enters GitHub. The unsigned artifact is deliberate: Sideloadly owns the personal signing step.
 
-HealthKit is an Apple capability, so the final signing profile must include its entitlement. If Sideloadly reports that your Personal Team cannot provision HealthKit, enroll in the Apple Developer Program and create a development profile with HealthKit enabled. The app itself still builds on GitHub's macOS runner either way.
+HealthKit is an Apple capability. The app target declares `com.apple.developer.healthkit`, and CI verifies that the generated Xcode build uses that entitlement file. The final profile produced while Sideloadly signs the app must also permit HealthKit. If a free Personal Team profile rejects the capability, a paid Apple Developer membership and a development profile with HealthKit enabled may be required.
 
 ## Source layout
 
@@ -30,7 +30,13 @@ project.yml       XcodeGen project definition
 
 - Barcode lookup uses Open Food Facts. Imported values must be checked against the package label.
 - Apple Health is read-only in v1. Food logs stay in the local SwiftData store.
-- Lidl Plus credentials are never requested. Offers stay deferred until a permitted source is available.
-- The AI coach uses the user-provided OpenRouter key saved in Keychain. It only receives macro totals and goals after an explicit in-app consent toggle.
+- Lidl catalogs are discovered from its public webpage and read through the webpage's flyer service. Many grocery offers exist only as flyer images; the structured product catalog does not cover every grocery. National flyers are not store availability guarantees.
+- Plan computes weekly planning locally. OpenRouter requests and Keychain configuration are not implemented; older descriptions overstated this.
 
-`openrouter/free` is used instead of pinning a free model because availability changes. It is a low-volume assistant, not a nutrition authority.
+## Weekly planning
+
+In Plan, set your weekly calorie budget and daily protein target. The weight-loss goal is independently configurable. The app reads fourteen calendar days of HealthKit resting/active energy and weight, allows food backdating, and asks you to review complete days before using them for weekly projections. Missing HealthKit values remain unknown. Meals are logged by the app, not automatically imported from other nutrition apps.
+
+Suggestions use foods whose nutrition you have checked. Portion sizes fit today's remaining calorie and protein allowances. Matching Lidl listings require the same product name and an applicable validity window; otherwise availability and price remain unknown. Shopping totals show confirmed subtotals and the number of unmatched items. Ingredient/allergen verification remains a label check, not a product-name inference.
+
+See [planning decisions](docs/weekly-planning.md) for calendar rules and calculation limits. CI runs executable Swift planning scenarios before the iOS archive. Compilation and arithmetic tests do not verify HealthKit permissions on your physical phone.

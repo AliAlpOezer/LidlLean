@@ -10,6 +10,7 @@ struct LidlShoppingView: View {
     @State private var search = ""
     @State private var foodOnly = true
     @State private var selection = 0
+    @State private var flyerPage = 0
     @State private var refreshing = false
     private let client = LidlCatalogClient()
 
@@ -69,7 +70,7 @@ struct LidlShoppingView: View {
         if let catalog {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("LIDL CATALOG").font(.caption.weight(.black)).tracking(1.4).foregroundStyle(AppTheme.lime)
+                    SectionEyebrow(title: "Live Lidl catalog")
                     Text(catalog.title).font(.title2.bold()).foregroundStyle(AppTheme.ink)
                     Text("\(catalog.offers.count) structured offers · \(catalog.pages.count) flyer pages").font(.subheadline).foregroundStyle(AppTheme.muted)
                     Text("Fetched \(catalog.fetchedAt.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(AppTheme.muted)
@@ -86,18 +87,39 @@ struct LidlShoppingView: View {
 
     private var flyerView: some View {
         ScrollView {
-            LazyVStack(spacing: 18) {
+            VStack(spacing: 16) {
                 catalogHeader
                 if let catalog {
-                    ForEach(catalog.pages) { page in
-                        AsyncImage(url: page.imageURL) { image in image.resizable().scaledToFit() } placeholder: {
-                            RoundedRectangle(cornerRadius: 18).fill(AppTheme.surface).frame(height: 420).overlay { ProgressView() }
+                    if !catalog.pages.isEmpty {
+                        HStack {
+                            Button { flyerPage = max(flyerPage - 1, 0) } label: {
+                                Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                            }.disabled(flyerPage == 0)
+                            Spacer()
+                            Text("Page \(flyerPage + 1) of \(catalog.pages.count)").font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Button { flyerPage = min(flyerPage + 1, catalog.pages.count - 1) } label: {
+                                Image(systemName: "chevron.right").frame(width: 44, height: 44)
+                            }.disabled(flyerPage == catalog.pages.count - 1)
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                        .overlay(alignment: .topLeading) { Text("PAGE \(page.number)").font(.caption.bold()).padding(8).background(.black.opacity(0.72), in: Capsule()).padding(10) }
                         .padding(.horizontal)
+                        TabView(selection: $flyerPage) {
+                            ForEach(Array(catalog.pages.enumerated()), id: \.element.id) { index, page in
+                                AsyncImage(url: page.imageURL) { image in
+                                    image.resizable().scaledToFit()
+                                } placeholder: {
+                                    RoundedRectangle(cornerRadius: 18).fill(AppTheme.surface)
+                                        .overlay { ProgressView() }
+                                }
+                                .padding(.horizontal)
+                                .tag(index)
+                            }
+                        }
+                        .frame(height: 500)
+                        .tabViewStyle(.page(indexDisplayMode: .never))
                     }
-                    Link("Open interactive flyer on Lidl.de", destination: catalog.flyerURL).foregroundStyle(AppTheme.lime).fontWeight(.bold)
+                    Link("Open complete flyer on Lidl.de", destination: catalog.flyerURL)
+                        .font(.headline).foregroundStyle(AppTheme.primary).frame(minHeight: 44)
                 }
             }.padding(.bottom, 24)
         }
@@ -145,16 +167,21 @@ private struct OfferCard: View {
     let add: () -> Void
     var body: some View {
         SurfaceCard {
-            HStack(spacing: 14) {
-                AsyncImage(url: offer.imageURL) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "photo").foregroundStyle(AppTheme.muted) }
-                    .frame(width: 88, height: 88).background(.white, in: RoundedRectangle(cornerRadius: 14))
-                VStack(alignment: .leading, spacing: 6) {
-                    if let brand = offer.brand { Text(brand.uppercased()).font(.caption2.bold()).foregroundStyle(AppTheme.muted) }
-                    Text(offer.title).font(.headline).foregroundStyle(AppTheme.ink).lineLimit(3)
-                    Text(offer.price.formatted(.currency(code: "EUR"))).font(.title3.bold()).foregroundStyle(AppTheme.lime)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 14) {
+                    AsyncImage(url: offer.imageURL) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "photo").foregroundStyle(AppTheme.muted) }
+                        .frame(width: 84, height: 84).background(.white, in: RoundedRectangle(cornerRadius: 14))
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let brand = offer.brand { Text(brand.uppercased()).font(.caption2.bold()).foregroundStyle(AppTheme.muted) }
+                        Text(offer.title).font(.headline).foregroundStyle(AppTheme.ink).lineLimit(3)
+                        Text(offer.price.formatted(.currency(code: "EUR"))).font(.title3.bold()).foregroundStyle(AppTheme.primary)
+                    }
                 }
-                Spacer()
-                Button(action: add) { Image(systemName: alreadyAdded ? "checkmark" : "plus").font(.headline).frame(width: 34, height: 34).background(alreadyAdded ? AppTheme.elevated : AppTheme.lime, in: Circle()).foregroundStyle(alreadyAdded ? AppTheme.lime : AppTheme.canvas) }.disabled(alreadyAdded)
+                Button(action: add) {
+                    Label(alreadyAdded ? "Added to basket" : "Add to basket", systemImage: alreadyAdded ? "checkmark" : "plus")
+                }
+                .buttonStyle(PrimaryActionStyle())
+                .disabled(alreadyAdded)
             }
         }.padding(.horizontal)
     }

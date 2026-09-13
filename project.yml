@@ -26,4 +26,14 @@ targets:
       properties:
         com.apple.developer.healthkit: true
     scheme:
-      testTargets: []
+      testTargets: [LidlLeanUITests]
+  LidlLeanUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: LidlLean
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'

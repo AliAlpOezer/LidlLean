@@ -19,8 +19,8 @@ struct PlannerSettingsView: View {
             Form {
                 Section("Your chosen targets") {
                     LabeledContent("Weekly loss goal (kg)") { TextField("kg", value: $weightGoal, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing) }
-                    LabeledContent("Weekly calories") { TextField("kcal", value: $weeklyCalories, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing) }
-                    LabeledContent("Daily protein") { TextField("g", value: $dailyProtein, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing) }
+                    LabeledContent("Weekly calories") { TextField("kcal", value: $weeklyCalories, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).accessibilityIdentifier("weeklyCalories") }
+                    LabeledContent("Daily protein") { TextField("g", value: $dailyProtein, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).accessibilityIdentifier("dailyProtein") }
                     Text("Weekly calories ÷ 7 sets the daily intake target. Expenditure is displayed separately and does not automatically increase your food budget.")
                 }
                 Section("Recommendation preferences") {
@@ -28,7 +28,7 @@ struct PlannerSettingsView: View {
                     Text("This filters product names only; check the ingredient label for allergens.").font(.caption)
                 }
                 if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
-                Button("Save goals") { save() }.disabled(!valid)
+                Button("Save goals") { save() }.disabled(!valid).accessibilityIdentifier("saveGoals")
             }
             .navigationTitle("Weekly goal")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }

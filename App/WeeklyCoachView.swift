@@ -67,14 +67,18 @@ struct WeeklyCoachView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("Your week,\nwith a plan.")
-                        .font(.largeTitle.bold()).foregroundStyle(AppTheme.ink)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Your week")
+                            .font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(AppTheme.ink)
+                        Text("A live plan from your food log and Apple Health.")
+                            .font(.subheadline).foregroundStyle(AppTheme.muted)
+                    }
                     if !configured {
                         SurfaceCard {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Set your weekly goal").font(.title2.bold())
                                 Text("Choose your calorie budget and protein target to connect your food history to today's shopping suggestions.")
-                                Button("Set up my plan") { settingsPresented = true }.buttonStyle(.borderedProminent)
+                                Button("Set up my plan") { settingsPresented = true }.buttonStyle(PrimaryActionStyle())
                             }
                         }
                     }
@@ -87,7 +91,7 @@ struct WeeklyCoachView: View {
                 }.padding()
             }
             .background(AppTheme.canvas)
-            .navigationTitle("Coach")
+            .navigationTitle("Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -106,7 +110,7 @@ struct WeeklyCoachView: View {
     private var yesterdayCard: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text("YESTERDAY").font(.caption.bold()).foregroundStyle(AppTheme.lime)
+                SectionEyebrow(title: "Yesterday")
                 if let yesterday = plan.yesterday {
                     LabeledContent("Food logged", value: "\(Int(yesterday.calories)) kcal")
                     LabeledContent("Recorded resting + active", value: yesterday.expenditure.map { "\(Int($0)) kcal" } ?? "Unavailable")
@@ -132,7 +136,7 @@ struct WeeklyCoachView: View {
     private var weekCard: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text("MONDAY TO SUNDAY").font(.caption.bold()).foregroundStyle(AppTheme.lime)
+                SectionEyebrow(title: "Monday to Sunday")
                 Text("\(Int(plan.loggedThisWeek)) / \(Int(plan.weeklyTarget)) kcal").font(.title2.bold())
                 ProgressView(value: min(plan.loggedThisWeek / max(plan.weeklyTarget, 1), 1))
                 if let average = plan.remainingAverage {
@@ -150,7 +154,7 @@ struct WeeklyCoachView: View {
                 }
                 .frame(height: 170)
                 .chartXAxis { AxisMarks(values: .stride(by: .day)) { value in AxisValueLabel(format: .dateTime.weekday(.narrow)) } }
-                Text("Green: reviewed. Gray: incomplete or not reviewed.").font(.caption).foregroundStyle(AppTheme.muted)
+                Text("Blue: reviewed. Gray: incomplete or not reviewed.").font(.caption).foregroundStyle(AppTheme.muted)
             }
         }
     }
@@ -158,7 +162,7 @@ struct WeeklyCoachView: View {
     private var weightCard: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 10) {
-                Text("WEIGHT TREND").font(.caption.bold()).foregroundStyle(AppTheme.lime)
+                SectionEyebrow(title: "Weight trend")
                 Text("Goal: \(weightGoal.formatted()) kg per week").font(.title3.bold())
                 let today = calendar.startOfDay(for: now)
                 let boundary = calendar.date(byAdding: .day, value: -6, to: today)!
@@ -180,7 +184,7 @@ struct WeeklyCoachView: View {
     private var historyCard: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text("DAILY JOURNAL").font(.caption.bold()).foregroundStyle(AppTheme.lime)
+                SectionEyebrow(title: "Daily journal")
                 DatePicker("Review day", selection: $selectedDay, in: history.first!.date...now, displayedComponents: .date)
                 let meals = entries.filter { calendar.isDate($0.consumedAt, inSameDayAs: selectedDay) }
                 ForEach(meals) { meal in
@@ -205,7 +209,7 @@ struct WeeklyCoachView: View {
     private var recommendationsCard: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 16) {
-                Text("WHAT TO BUY NEXT").font(.caption.bold()).foregroundStyle(AppTheme.lime)
+                SectionEyebrow(title: "What to buy next")
                 if let yesterday = plan.yesterday, yesterday.reviewed, yesterday.protein < proteinTarget {
                     Text("Yesterday was \(Int(proteinTarget - yesterday.protein)) g below your protein target. Planning a protein source today may make that target easier to reach.")
                 }
@@ -234,6 +238,7 @@ struct WeeklyCoachView: View {
 
     private func refresh() async {
         guard !loading else { return }
+        if AppRuntime.isUITest { return }
         loading = true
         defer { loading = false }
         now = .now
