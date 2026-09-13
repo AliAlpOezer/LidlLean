@@ -20,7 +20,7 @@ jobs:
         run: xcodegen generate
       - name: Verify HealthKit capability wiring
         run: |
-          test "$(plutil -extract com.apple.developer.healthkit raw App/LidlLean.entitlements)" = "true"
+          python3 -c 'import plistlib; assert plistlib.load(open("App/LidlLean.entitlements", "rb"))["com.apple.developer.healthkit"] is True'
           xcodebuild -project LidlLean.xcodeproj -scheme LidlLean -showBuildSettings | grep -q 'CODE_SIGN_ENTITLEMENTS = App/LidlLean.entitlements'
       - name: Verify weekly planning scenarios
         run: |
