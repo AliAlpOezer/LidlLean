@@ -13,6 +13,49 @@ struct ActivitySnapshot: Equatable {
 
 actor HealthKitClient {
     private let store = HKHealthStore()
+    func energyHistory(from start: Date, to end: Date, calendar: Calendar) async throws -> [Date: (resting: Double?, active: Double?)] {
+        guard HKHealthStore.isHealthDataAvailable() else { return [:] }
+        async let resting = dailyEnergy(.basalEnergyBurned, from: start, to: end, calendar: calendar)
+        async let active = dailyEnergy(.activeEnergyBurned, from: start, to: end, calendar: calendar)
+        let (restingValues, activeValues) = try await (resting, active)
+        var result: [Date: (resting: Double?, active: Double?)] = [:]
+        var day = calendar.startOfDay(for: start)
+        while day < end {
+            result[day] = (restingValues[day], activeValues[day])
+            day = calendar.date(byAdding: .day, value: 1, to: day)!
+        }
+        return result
+    }
+
+    func weightHistory(from start: Date, to end: Date, calendar: Calendar) async throws -> [Date: Double] {
+        guard HKHealthStore.isHealthDataAvailable() else { return [:] }
+        return try await dailyEnergy(.bodyMass, from: start, to: end, calendar: calendar,
+                                     unit: .gramUnit(with: .kilo), options: .discreteAverage)
+    }
+
+    private func dailyEnergy(_ identifier: HKQuantityTypeIdentifier, from start: Date, to end: Date,
+                             calendar: Calendar, unit: HKUnit = .kilocalorie(),
+                             options: HKStatisticsOptions = .cumulativeSum) async throws -> [Date: Double] {
+        try await withCheckedThrowingContinuation { continuation in
+            let query = HKStatisticsCollectionQuery(
+                quantityType: HKQuantityType(identifier),
+                quantitySamplePredicate: HKQuery.predicateForSamples(withStart: start, end: end),
+                options: options, anchorDate: calendar.startOfDay(for: start),
+                intervalComponents: DateComponents(day: 1))
+            query.initialResultsHandler = { _, collection, error in
+                if let error { continuation.resume(throwing: error); return }
+                var values: [Date: Double] = [:]
+                collection?.enumerateStatistics(from: start, to: end) { statistics, _ in
+                    let quantity = options == .discreteAverage ? statistics.averageQuantity() : statistics.sumQuantity()
+                    if let quantity {
+                        values[calendar.startOfDay(for: statistics.startDate)] = quantity.doubleValue(for: unit)
+                    }
+                }
+                continuation.resume(returning: values)
+            }
+            store.execute(query)
+        }
+    }
     func requestAccess() async throws {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         try await store.requestAuthorization(toShare: [], read: [

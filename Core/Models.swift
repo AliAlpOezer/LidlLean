@@ -25,6 +25,7 @@ struct Nutrients: Codable, Equatable {
     var nutrientsPer100g: Nutrients
     var source: FoodSource
     var verifiedAt: Date
+    var labelConfirmed: Bool = false
     init(name: String, barcode: String? = nil, nutrientsPer100g: Nutrients, source: FoodSource = .manual) {
         id = UUID(); self.name = name; self.barcode = barcode; self.nutrientsPer100g = nutrientsPer100g; self.source = source; verifiedAt = .now
     }
@@ -61,6 +62,8 @@ struct Nutrients: Codable, Equatable {
     var productURL: String?
     var imageURL: String?
     var addedAt: Date
+    var priceKnown: Bool = true
+    var nutritionConfirmed: Bool = false
 
     init(offerID: String, name: String, unitPrice: Double, productURL: String?, imageURL: String?) {
         id = UUID()
@@ -78,4 +81,20 @@ struct Nutrients: Codable, Equatable {
 
     var estimatedCalories: Double? { caloriesPer100g.map { $0 * plannedGrams / 100 } }
     var totalPrice: Double { unitPrice * Double(quantity) }
+}
+
+@Model final class DayReview {
+    @Attribute(.unique) var day: Date
+    var signature: String
+
+    init(day: Date, signature: String) {
+        self.day = day
+        self.signature = signature
+    }
+
+    static func signature(for entries: [MealEntry]) -> String {
+        entries.sorted { $0.id.uuidString < $1.id.uuidString }.map {
+            "\($0.id)|\($0.consumedAt.timeIntervalSince1970)|\($0.grams)|\($0.nutrients.calories)|\($0.nutrients.protein)|\($0.nutrients.carbohydrates)|\($0.nutrients.fat)"
+        }.joined(separator: ";")
+    }
 }

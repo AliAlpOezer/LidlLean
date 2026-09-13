@@ -2,15 +2,14 @@ import Foundation
 
 enum NutritionMatcher {
     static func estimate(for title: String, knownFoods: [Food]) -> Nutrients? {
-        let query = tokens(title)
-        if let match = knownFoods.map({ ($0, score(query, tokens($0.name))) }).filter({ $0.1 >= 0.5 }).max(by: { $0.1 < $1.1 })?.0 { return match.nutrientsPer100g }
-        let normalized = normalize(title)
-        return references.first(where: { entry in entry.aliases.contains(where: normalized.contains) })?.nutrients
+        knownFoods.first {
+            $0.labelConfirmed && $0.name.caseInsensitiveCompare(title) == .orderedSame
+        }?.nutrientsPer100g
     }
 
     static func looksLikeFood(_ offer: LidlOffer) -> Bool {
-        let text = normalize([offer.title, offer.category ?? ""].joined(separator: " "))
-        return foodWords.contains(where: text.contains)
+        let category = normalize(offer.category ?? "")
+        return ["lebensmittel", "essen & trinken", "essen trinken", "molkereiprodukte", "obst", "gemuse", "fleisch", "fisch"].contains(where: category.contains)
     }
 
     private static func score(_ lhs: Set<String>, _ rhs: Set<String>) -> Double {

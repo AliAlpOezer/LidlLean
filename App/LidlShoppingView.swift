@@ -20,9 +20,9 @@ struct LidlShoppingView: View {
             (search.isEmpty || offer.title.localizedCaseInsensitiveContains(search) || offer.brand?.localizedCaseInsensitiveContains(search) == true)
         }
     }
-    private var totalPrice: Double { basket.reduce(0) { $0 + $1.unitPrice * Double($1.quantity) } }
-    private var totalCalories: Double { basket.reduce(0) { $0 + ($1.caloriesPer100g ?? 0) * $1.plannedGrams / 100 } }
-    private var totalProtein: Double { basket.reduce(0) { $0 + ($1.proteinPer100g ?? 0) * $1.plannedGrams / 100 } }
+    private var totalPrice: Double { basket.filter(\.priceKnown).reduce(0) { $0 + $1.unitPrice * Double($1.quantity) } }
+    private var totalCalories: Double { basket.filter(\.nutritionConfirmed).reduce(0) { $0 + ($1.caloriesPer100g ?? 0) * $1.plannedGrams / 100 } }
+    private var totalProtein: Double { basket.filter(\.nutritionConfirmed).reduce(0) { $0 + ($1.proteinPer100g ?? 0) * $1.plannedGrams / 100 } }
 
     var body: some View {
         NavigationStack {
@@ -69,10 +69,12 @@ struct LidlShoppingView: View {
         if let catalog {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("LIVE FROM LIDL.DE").font(.caption.weight(.black)).tracking(1.4).foregroundStyle(AppTheme.lime)
+                    Text("LIDL CATALOG").font(.caption.weight(.black)).tracking(1.4).foregroundStyle(AppTheme.lime)
                     Text(catalog.title).font(.title2.bold()).foregroundStyle(AppTheme.ink)
                     Text("\(catalog.offers.count) structured offers · \(catalog.pages.count) flyer pages").font(.subheadline).foregroundStyle(AppTheme.muted)
-                    Text("Updated \(catalog.fetchedAt.formatted(date: .omitted, time: .shortened))").font(.caption).foregroundStyle(AppTheme.muted)
+                    Text("Fetched \(catalog.fetchedAt.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(AppTheme.muted)
+                    if catalog.validUntil < Date.now { Text("Expired flyer. Refresh before relying on these prices.").foregroundStyle(.orange) }
+                    if Date.now.timeIntervalSince(catalog.fetchedAt) > 6 * 60 * 60 { Text("Showing saved data; live refresh was unavailable.").foregroundStyle(.orange) }
                 }
             }.padding(.horizontal)
         } else if let errorMessage {
@@ -104,9 +106,10 @@ struct LidlShoppingView: View {
     private var basketView: some View {
         List {
             Section {
-                LabeledContent("Estimated checkout", value: totalPrice.formatted(.currency(code: "EUR")))
-                LabeledContent("Planned calories", value: "\(Int(totalCalories)) kcal")
-                LabeledContent("Planned protein", value: "\(Int(totalProtein)) g")
+                LabeledContent("Known price subtotal", value: totalPrice.formatted(.currency(code: "EUR")))
+                LabeledContent("Confirmed calorie subtotal", value: "\(Int(totalCalories)) kcal")
+                LabeledContent("Confirmed protein subtotal", value: "\(Int(totalProtein)) g")
+                Text("\(basket.filter { !$0.priceKnown }.count) items lack a price; \(basket.filter { !$0.nutritionConfirmed }.count) need a nutrition label. These are excluded from subtotals.").font(.caption)
             } header: { Text("PLAN TOTAL") }
             Section("ITEMS") {
                 if basket.isEmpty { Text("Add Lidl offers to build your week.").foregroundStyle(AppTheme.muted) }
@@ -129,8 +132,10 @@ struct LidlShoppingView: View {
         if let estimate = NutritionMatcher.estimate(for: offer.title, knownFoods: foods) {
             item.caloriesPer100g = estimate.calories
             item.proteinPer100g = estimate.protein
+            item.nutritionConfirmed = true
         }
         context.insert(item)
+        do { try context.save() } catch { context.rollback(); errorMessage = "Could not save shopping item: \(error.localizedDescription)" }
     }
 }
 
@@ -157,16 +162,27 @@ private struct OfferCard: View {
 
 private struct BasketRow: View {
     @Bindable var item: ShoppingItem
+    @Query private var foods: [Food]
     private var nutrition: String {
-        guard let calories = item.caloriesPer100g else { return "Nutrition needs confirmation" }
+        guard item.nutritionConfirmed, let calories = item.caloriesPer100g else { return "Nutrition needs confirmation" }
         return "\(Int(calories * item.plannedGrams / 100)) kcal · \(Int((item.proteinPer100g ?? 0) * item.plannedGrams / 100))g protein"
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack { Text(item.name).fontWeight(.semibold); Spacer(); Text((item.unitPrice * Double(item.quantity)).formatted(.currency(code: "EUR"))).foregroundStyle(AppTheme.lime) }
+            HStack { Text(item.name).fontWeight(.semibold); Spacer(); Text(item.priceKnown ? (item.unitPrice * Double(item.quantity)).formatted(.currency(code: "EUR")) : "Price unknown").foregroundStyle(AppTheme.lime) }
             Text(nutrition).font(.caption).foregroundStyle(AppTheme.muted)
             Stepper("Quantity: \(item.quantity)", value: $item.quantity, in: 1...20)
-            HStack { Text("Planned grams"); TextField("Grams", value: $item.plannedGrams, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(maxWidth: 90) }
+            Stepper("Total planned amount: \(Int(item.plannedGrams)) g", value: $item.plannedGrams, in: 0...20000, step: 25)
+            Text("Planned grams cover the whole line, independently of pack quantity.").font(.caption)
+            Menu("Use a checked food label") {
+                ForEach(foods.filter(\.labelConfirmed)) { food in
+                    Button(food.name) {
+                        item.caloriesPer100g = food.nutrientsPer100g.calories
+                        item.proteinPer100g = food.nutrientsPer100g.protein
+                        item.nutritionConfirmed = true
+                    }
+                }
+            }
         }
     }
 }

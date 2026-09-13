@@ -6,7 +6,7 @@ struct RootView: View {
             TodayView().tabItem { Label("Today", systemImage: "chart.xyaxis.line") }
             AddFoodView().tabItem { Label("Log", systemImage: "plus.circle.fill") }
             LidlShoppingView().tabItem { Label("Plan", systemImage: "basket.fill") }
-            CoachView().tabItem { Label("Coach", systemImage: "sparkles") }
+            WeeklyCoachView().tabItem { Label("Coach", systemImage: "sparkles") }
         }
         .tint(AppTheme.lime)
         .preferredColorScheme(.dark)
