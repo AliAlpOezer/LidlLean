@@ -48,3 +48,34 @@ struct Nutrients: Codable, Equatable {
     var proteinTarget: Double
     init(calorieTarget: Double = 2_000, proteinTarget: Double = 140) { id = UUID(); self.calorieTarget = calorieTarget; self.proteinTarget = proteinTarget }
 }
+
+@Model final class ShoppingItem {
+    @Attribute(.unique) var id: UUID
+    var offerID: String
+    var name: String
+    var unitPrice: Double
+    var quantity: Int
+    var plannedGrams: Double
+    var caloriesPer100g: Double?
+    var proteinPer100g: Double?
+    var productURL: String?
+    var imageURL: String?
+    var addedAt: Date
+
+    init(offerID: String, name: String, unitPrice: Double, productURL: String?, imageURL: String?) {
+        id = UUID()
+        self.offerID = offerID
+        self.name = name
+        self.unitPrice = unitPrice
+        quantity = 1
+        plannedGrams = 100
+        caloriesPer100g = nil
+        proteinPer100g = nil
+        self.productURL = productURL
+        self.imageURL = imageURL
+        addedAt = .now
+    }
+
+    var estimatedCalories: Double? { caloriesPer100g.map { $0 * plannedGrams / 100 } }
+    var totalPrice: Double { unitPrice * Double(quantity) }
+}

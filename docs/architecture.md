@@ -62,4 +62,38 @@ The app must remain valuable offline. Barcode catalog, HealthKit, hosted build, 
 
 ## Deferred scope
 
-Lidl offer import needs a permitted source. Camera-based food recognition, recipe planning, micronutrient coverage, cloud sync, and a proxy-backed AI service are later stages with separate design records.
+Camera-based food recognition, recipe planning, micronutrient coverage, cloud sync, and a proxy-backed AI service are later stages with separate design records.
+
+## Lidl public-web ingestion subsystem
+
+### Goal
+
+Turn Lidl's current German public flyer into browsable, actionable shopping data inside LidlLean, including actual flyer pages, structured products, prices, and persistent basket totals.
+
+### Invariants
+
+- The app always obtains flyer discovery metadata from Lidl's public `lidl.de` webpage.
+- A Lidl response is never treated as nutrition truth. Nutrition is separately matched and visibly left unknown when confidence is insufficient.
+- The last successfully decoded catalog remains available when Lidl is temporarily offline or changes markup.
+- Refreshing or retrying never duplicates a basket item with the same offer identifier.
+- The app does not authenticate to Lidl Plus, collect Lidl credentials, or claim store-specific availability without store-specific data.
+
+### Components and seams
+
+| Component | Input -> output | Failure behavior | Autonomy |
+| --- | --- | --- | --- |
+| Catalog discovery | `lidl.de` HTML -> Schema.org `OfferCatalog` sale events | Uses cached catalog or shows a real error | Human-triggered refresh plus six-hour cache |
+| Flyer decoder | Selected public flyer identifier -> Lidl flyer JSON | Rejects invalid responses atomically | Called by discovery |
+| Offer normalizer | Product dictionary -> stable `LidlOffer` records | Skips only records without a valid price | Deterministic |
+| Flyer renderer | Page image URLs -> lazy in-app pages | An image can fail independently without losing the catalog | User-driven |
+| Nutrition matcher | Offer title plus local verified foods -> optional nutrients | Unknown stays unknown; no invented zero values | Deterministic suggestion |
+| Basket store | Confirmed offer -> SwiftData `ShoppingItem` | Stable offer ID prevents duplicate adds in the UI | Human-triggered |
+
+The carriers are HTTPS GETs for public Lidl data, a six-hour atomic JSON cache for network handoff, immutable value types between decoder and UI, and SwiftData for the user's basket. Network ordering is irrelevant because only a completed catalog replaces the cache. The basket remains independent of refresh order.
+
+### Rejected alternatives
+
+- Opening a browser as the primary experience: it exposes the flyer but cannot calculate a basket.
+- Parsing only flyer dates: it proves freshness but provides no shopping value.
+- Treating page text as structured products: OCR-like text lacks reliable price-to-product boundaries.
+- Sending flyer images to an LLM by default: expensive, non-deterministic, and unnecessary where Lidl already exposes structured public data.
