@@ -22,9 +22,7 @@ final class PlanningUITests: XCTestCase {
         XCTAssertEqual((protein.value as? String ?? "").filter(\.isNumber), "140")
         app.swipeUp()
         let save = app.buttons["saveGoals"]
-        let enabled = NSPredicate(format: "enabled == true")
-        expectation(for: enabled, evaluatedWith: save)
-        waitForExpectations(timeout: 5)
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
         save.tap()
         XCTAssertTrue(app.navigationBars["Plan"].waitForExistence(timeout: 10))
         app.swipeUp()

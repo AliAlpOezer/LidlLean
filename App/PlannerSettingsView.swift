@@ -28,7 +28,7 @@ struct PlannerSettingsView: View {
                     Text("This filters product names only; check the ingredient label for allergens.").font(.caption)
                 }
                 if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
-                Button("Save goals") { save() }.disabled(!valid).accessibilityIdentifier("saveGoals")
+                Button("Save goals") { save() }.accessibilityIdentifier("saveGoals")
             }
             .navigationTitle("Weekly goal")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
@@ -45,7 +45,10 @@ struct PlannerSettingsView: View {
         weightGoal.isFinite && weightGoal >= 0 && weightGoal <= 2 && weeklyCalories.isFinite && dailyProtein.isFinite && weeklyCalories > 0 && weeklyCalories <= 70000 && dailyProtein > 0 && dailyProtein <= 500
     }
     private func save() {
-        guard valid else { return }
+        guard valid else {
+            errorMessage = "Enter a weekly calorie budget above zero, a protein target above zero, and a weekly weight goal between 0 and 2 kg."
+            return
+        }
         let goal = goals.first ?? UserGoal()
         if goals.isEmpty { context.insert(goal) }
         goal.calorieTarget = weeklyCalories / 7
