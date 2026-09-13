@@ -20,7 +20,6 @@ final class PlanningUITests: XCTestCase {
         let protein = app.textFields["dailyProtein"]
         XCTAssertEqual((calories.value as? String ?? "").filter(\.isNumber), "14000")
         XCTAssertEqual((protein.value as? String ?? "").filter(\.isNumber), "140")
-        app.swipeUp()
         let save = app.buttons["saveGoals"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
         save.tap()

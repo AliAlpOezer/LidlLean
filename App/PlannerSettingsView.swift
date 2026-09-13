@@ -28,10 +28,16 @@ struct PlannerSettingsView: View {
                     Text("This filters product names only; check the ingredient label for allergens.").font(.caption)
                 }
                 if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
-                Button("Save goals") { save() }.accessibilityIdentifier("saveGoals")
             }
             .navigationTitle("Weekly goal")
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save() }
+                        .fontWeight(.semibold)
+                        .accessibilityIdentifier("saveGoals")
+                }
+            }
             .onAppear {
                 weeklyCalories = (goals.first?.calorieTarget ?? 2_000) * 7
                 dailyProtein = goals.first?.proteinTarget ?? 140
