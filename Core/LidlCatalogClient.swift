@@ -94,7 +94,7 @@ actor LidlCatalogClient {
         do { response = try JSONDecoder().decode(FlyerResponse.self, from: try await payload(from: url)) }
         catch { throw LidlCatalogError.invalidResponseDetail("flyer payload decode failed: \(Self.describe(error))") }
         guard response.success else { throw LidlCatalogError.invalidResponseDetail("the endpoint reported failure") }
-        let offers = response.flyer.products.values.compactMap { product -> LidlOffer? in
+        let offers = response.flyer.products.compactMap { product -> LidlOffer? in
             guard let priceText = product.price, let price = Double(priceText.replacingOccurrences(of: ",", with: ".")) else { return nil }
             return LidlOffer(id: product.productID ?? product.title, title: product.title, brand: product.brand, price: price, imageURL: product.image.flatMap(URL.init(string:)), productURL: product.url.flatMap(URL.init(string:)), category: product.wonCategoryPrimary ?? product.categoryPrimary)
         }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
@@ -185,7 +185,7 @@ private struct FlyerResponse: Decodable {
     }
 }
 
-private struct FlyerPayload: Decodable { let title: String; let products: [String: FlyerProduct]; let pages: [FlyerPage] }
+private struct FlyerPayload: Decodable { let title: String; let products: [FlyerProduct]; let pages: [FlyerPage] }
 private struct FlyerProduct: Decodable {
     let productID: String?; let title: String; let brand: String?; let price: String?; let image: String?; let url: String?; let wonCategoryPrimary: String?; let categoryPrimary: String?
     enum CodingKeys: String, CodingKey { case productID = "productId"; case title; case brand; case price; case image; case url; case wonCategoryPrimary; case categoryPrimary }
