@@ -151,15 +151,20 @@ actor HealthImportStore {
         var result = day
         switch record.type {
         case "HKQuantityTypeIdentifierActiveEnergyBurned":
-            result.activeKcal = (result.activeKcal ?? 0) + try convert(record.value, unit: record.unit, kind: .kcal)
+            let value = try convert(record.value, unit: record.unit, kind: .kcal)
+            result.activeKcal = (result.activeKcal ?? 0) + value
         case "HKQuantityTypeIdentifierBasalEnergyBurned":
-            result.restingKcal = (result.restingKcal ?? 0) + try convert(record.value, unit: record.unit, kind: .kcal)
+            let value = try convert(record.value, unit: record.unit, kind: .kcal)
+            result.restingKcal = (result.restingKcal ?? 0) + value
         case "HKQuantityTypeIdentifierStepCount":
-            result.steps = (result.steps ?? 0) + try convert(record.value, unit: record.unit, kind: .steps)
+            let value = try convert(record.value, unit: record.unit, kind: .steps)
+            result.steps = (result.steps ?? 0) + value
         case "HKQuantityTypeIdentifierDistanceWalkingRunning":
-            result.walkingDistanceKm = (result.walkingDistanceKm ?? 0) + try convert(record.value, unit: record.unit, kind: .kilometers)
+            let value = try convert(record.value, unit: record.unit, kind: .kilometers)
+            result.walkingDistanceKm = (result.walkingDistanceKm ?? 0) + value
         case "HKQuantityTypeIdentifierAppleExerciseTime":
-            result.exerciseMinutes = (result.exerciseMinutes ?? 0) + try convert(record.value, unit: record.unit, kind: .minutes)
+            let value = try convert(record.value, unit: record.unit, kind: .minutes)
+            result.exerciseMinutes = (result.exerciseMinutes ?? 0) + value
         case "HKQuantityTypeIdentifierBodyMass":
             weights[key, default: []].append(try convert(record.value, unit: record.unit, kind: .kilograms))
         case "HKQuantityTypeIdentifierBodyFatPercentage":
