@@ -5,23 +5,25 @@ struct RootView: View {
     @State private var selection = AppTab.today
 
     var body: some View {
-        TabView(selection: $selection) {
-            TodayView { selection = .log }
-                .tabItem { Label("Today", systemImage: "circle.grid.2x2.fill") }
-                .tag(AppTab.today)
-            AddFoodView()
-                .tabItem { Label("Log", systemImage: "plus.circle.fill") }
-                .tag(AppTab.log)
-            LidlShoppingView()
-                .tabItem { Label("Shop", systemImage: "basket.fill") }
-                .tag(AppTab.shop)
-            WeeklyCoachView()
-                .tabItem { Label("Plan", systemImage: "chart.line.uptrend.xyaxis") }
-                .tag(AppTab.plan)
+        ZStack {
+            AppTheme.canvas.ignoresSafeArea()
+            TabView(selection: $selection) {
+                TodayView { selection = .log }
+                    .tabItem { Label("Today", systemImage: "circle.grid.2x2.fill") }
+                    .tag(AppTab.today)
+                AddFoodView()
+                    .tabItem { Label("Log", systemImage: "plus.circle.fill") }
+                    .tag(AppTab.log)
+                LidlShoppingView()
+                    .tabItem { Label("Shop", systemImage: "basket.fill") }
+                    .tag(AppTab.shop)
+                WeeklyCoachView()
+                    .tabItem { Label("Plan", systemImage: "chart.line.uptrend.xyaxis") }
+                    .tag(AppTab.plan)
+            }
+            .modifier(AppTabBarStyle())
+            .preferredColorScheme(.light)
         }
-        .modifier(AppTabBarStyle())
-        .background(AppTheme.canvas.ignoresSafeArea())
-        .preferredColorScheme(.light)
         .onOpenURL { url in
             guard url.scheme?.lowercased() == "lidllean", url.host?.lowercased() == "health-sync" else { return }
             Task {
