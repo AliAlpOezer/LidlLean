@@ -195,7 +195,7 @@ private extension KeyedDecodingContainer {
 
     func decodeFlexibleInt(forKey key: Key) throws -> Int {
         if let value = try? decode(Int.self, forKey: key) { return value }
-        if let value = try decode(String.self, forKey: key), let integer = Int(value) { return integer }
+        if let value = try? decode(String.self, forKey: key), let integer = Int(value) { return integer }
         throw DecodingError.dataCorruptedError(forKey: key, in: self, debugDescription: "Expected an integer or numeric string.")
     }
 
