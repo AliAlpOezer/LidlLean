@@ -29,12 +29,14 @@ struct LidlWeeklyCatalog: Equatable, Sendable {
 
 enum LidlCatalogError: LocalizedError {
     case noCatalogMetadata, noApplicableFlyer, invalidFlyerURL, invalidResponse
+    case invalidResponseDetail(String)
     var errorDescription: String? {
         switch self {
         case .noCatalogMetadata: "Lidl's offers page did not contain its flyer catalog."
         case .noApplicableFlyer: "No current or upcoming Lidl flyer was found."
         case .invalidFlyerURL: "Lidl returned an invalid flyer link."
         case .invalidResponse: "Lidl's flyer service returned an invalid response."
+        case .invalidResponseDetail(let detail): "Lidl's flyer service returned an invalid response: \(detail)"
         }
     }
 }
@@ -68,11 +70,16 @@ actor LidlCatalogClient {
         let pattern = #"<script\s+type=["']application/ld\+json["'][^>]*>(.*?)</script>"#
         let regex = try NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators])
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        var decodeError: Error?
         let catalogs = regex.matches(in: html, range: NSRange(html.startIndex..., in: html)).compactMap { match -> OfferCatalog? in
             guard let range = Range(match.range(at: 1), in: html) else { return nil }
-            return try? decoder.decode(OfferCatalog.self, from: Data(html[range].utf8))
+            do { return try decoder.decode(OfferCatalog.self, from: Data(html[range].utf8)) }
+            catch { decodeError = error; return nil }
         }.filter { $0.type == "OfferCatalog" }
-        guard !catalogs.isEmpty else { throw LidlCatalogError.noCatalogMetadata }
+        guard !catalogs.isEmpty else {
+            if let decodeError { throw LidlCatalogError.invalidResponseDetail("flyer metadata decode failed: \(decodeError.localizedDescription)") }
+            throw LidlCatalogError.noCatalogMetadata
+        }
         let day = Calendar.current.startOfDay(for: now)
         let candidates = catalogs.flatMap(\.events).filter { $0.endDate >= day }.sorted { $0.startDate < $1.startDate }
         guard let result = candidates.first(where: { $0.startDate <= now && $0.endDate >= now }) ?? candidates.first else { throw LidlCatalogError.noApplicableFlyer }
@@ -83,8 +90,10 @@ actor LidlCatalogClient {
         guard let identifier = Self.flyerIdentifier(from: flyer.url), var components = URLComponents(url: Self.endpoint, resolvingAgainstBaseURL: false) else { throw LidlCatalogError.invalidFlyerURL }
         components.queryItems = [URLQueryItem(name: "flyer_identifier", value: identifier)]
         guard let url = components.url else { throw LidlCatalogError.invalidFlyerURL }
-        let response = try JSONDecoder().decode(FlyerResponse.self, from: try await payload(from: url))
-        guard response.success else { throw LidlCatalogError.invalidResponse }
+        let response: FlyerResponse
+        do { response = try JSONDecoder().decode(FlyerResponse.self, from: try await payload(from: url)) }
+        catch { throw LidlCatalogError.invalidResponseDetail("flyer payload decode failed: \(error.localizedDescription)") }
+        guard response.success else { throw LidlCatalogError.invalidResponseDetail("the endpoint reported failure") }
         let offers = response.flyer.products.values.compactMap { product -> LidlOffer? in
             guard let priceText = product.price, let price = Double(priceText.replacingOccurrences(of: ",", with: ".")) else { return nil }
             return LidlOffer(id: product.productID ?? product.title, title: product.title, brand: product.brand, price: price, imageURL: product.image.flatMap(URL.init(string:)), productURL: product.url.flatMap(URL.init(string:)), category: product.wonCategoryPrimary ?? product.categoryPrimary)
@@ -97,7 +106,10 @@ actor LidlCatalogClient {
         var request = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 25)
         request.setValue("LidlLean/1.0 personal shopping planner", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await session.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw LidlCatalogError.invalidResponse }
+        guard let status = (response as? HTTPURLResponse)?.statusCode, status == 200 else {
+            let status = (response as? HTTPURLResponse)?.statusCode.map(String.init) ?? "unknown"
+            throw LidlCatalogError.invalidResponseDetail("HTTP \(status)")
+        }
         return data
     }
 
