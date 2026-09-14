@@ -8,8 +8,6 @@
 	<string>LidlLean</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
-	<key>UIDesignRequiresCompatibility</key>
-	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>LidlLean uses the camera to scan food barcodes.</string>
 	<key>NSHealthShareUsageDescription</key>
