@@ -13,6 +13,7 @@ struct ActivitySnapshot: Equatable {
 
 actor HealthKitClient {
     private let store = HKHealthStore()
+    private let imported = HealthImportStore.shared
 
     nonisolated static func userFacingError(_ error: Error) -> String {
         let message = error.localizedDescription.lowercased()
@@ -25,23 +26,38 @@ actor HealthKitClient {
         return error.localizedDescription
     }
     func energyHistory(from start: Date, to end: Date, calendar: Calendar) async throws -> [Date: (resting: Double?, active: Double?)] {
-        guard HKHealthStore.isHealthDataAvailable() else { return [:] }
-        async let resting = dailyEnergy(.basalEnergyBurned, from: start, to: end, calendar: calendar)
-        async let active = dailyEnergy(.activeEnergyBurned, from: start, to: end, calendar: calendar)
-        let (restingValues, activeValues) = try await (resting, active)
-        var result: [Date: (resting: Double?, active: Double?)] = [:]
-        var day = calendar.startOfDay(for: start)
-        while day < end {
-            result[day] = (restingValues[day], activeValues[day])
-            day = calendar.date(byAdding: .day, value: 1, to: day)!
+        let importedValues = await imported.energyHistory(from: start, to: end)
+        guard HKHealthStore.isHealthDataAvailable() else { return importedValues }
+        do {
+            async let resting = dailyEnergy(.basalEnergyBurned, from: start, to: end, calendar: calendar)
+            async let active = dailyEnergy(.activeEnergyBurned, from: start, to: end, calendar: calendar)
+            let (restingValues, activeValues) = try await (resting, active)
+            var result: [Date: (resting: Double?, active: Double?)] = [:]
+            var day = calendar.startOfDay(for: start)
+            while day < end {
+                let importedDay = importedValues[day]
+                result[day] = (restingValues[day] ?? importedDay?.resting,
+                               activeValues[day] ?? importedDay?.active)
+                day = calendar.date(byAdding: .day, value: 1, to: day)!
+            }
+            return result
+        } catch {
+            if importedValues.values.contains(where: { $0.resting != nil || $0.active != nil }) { return importedValues }
+            throw error
         }
-        return result
     }
 
     func weightHistory(from start: Date, to end: Date, calendar: Calendar) async throws -> [Date: Double] {
-        guard HKHealthStore.isHealthDataAvailable() else { return [:] }
-        return try await dailyEnergy(.bodyMass, from: start, to: end, calendar: calendar,
-                                     unit: .gramUnit(with: .kilo), options: .discreteAverage)
+        let importedValues = await imported.weightHistory(from: start, to: end)
+        guard HKHealthStore.isHealthDataAvailable() else { return importedValues }
+        do {
+            let live = try await dailyEnergy(.bodyMass, from: start, to: end, calendar: calendar,
+                                             unit: .gramUnit(with: .kilo), options: .discreteAverage)
+            return importedValues.merging(live) { _, liveValue in liveValue }
+        } catch {
+            if !importedValues.isEmpty { return importedValues }
+            throw error
+        }
     }
 
     private func dailyEnergy(_ identifier: HKQuantityTypeIdentifier, from start: Date, to end: Date,
@@ -77,7 +93,8 @@ actor HealthKitClient {
         ])
     }
     func todaySnapshot() async -> ActivitySnapshot {
-        guard HKHealthStore.isHealthDataAvailable() else { return .unavailable }
+        let importedSnapshot = await imported.todaySnapshot()
+        guard HKHealthStore.isHealthDataAvailable() else { return importedSnapshot }
         async let energy = sum(.activeEnergyBurned, .kilocalorie())
         async let basal = sum(.basalEnergyBurned, .kilocalorie())
         async let steps = sum(.stepCount, .count())
@@ -85,7 +102,13 @@ actor HealthKitClient {
         async let exercise = sum(.appleExerciseTime, .minute())
         async let weight = latest(.bodyMass, .gramUnit(with: .kilo))
         async let bodyFat = latest(.bodyFatPercentage, .percent())
-        return await ActivitySnapshot(activeEnergy: energy, basalEnergy: basal, steps: steps, walkingDistance: distance, exerciseMinutes: exercise, weight: weight, bodyFatPercent: bodyFat.map { $0 * 100 })
+        return await ActivitySnapshot(activeEnergy: energy ?? importedSnapshot.activeEnergy,
+                                      basalEnergy: basal ?? importedSnapshot.basalEnergy,
+                                      steps: steps ?? importedSnapshot.steps,
+                                      walkingDistance: distance ?? importedSnapshot.walkingDistance,
+                                      exerciseMinutes: exercise ?? importedSnapshot.exerciseMinutes,
+                                      weight: weight ?? importedSnapshot.weight,
+                                      bodyFatPercent: bodyFat.map { $0 * 100 } ?? importedSnapshot.bodyFatPercent)
     }
     private func sum(_ identifier: HKQuantityTypeIdentifier, _ unit: HKUnit) async -> Double? {
         let start = Calendar.current.startOfDay(for: .now)

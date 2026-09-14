@@ -18,6 +18,8 @@ For a browser-hosted iOS UI preview on Windows, the same workflow also produces 
 
 HealthKit is an Apple capability. The app target declares `com.apple.developer.healthkit`, and CI verifies that the generated Xcode build uses that entitlement file. The final profile produced while Sideloadly signs the app is the authority: it must also contain HealthKit. A free Personal Team profile may omit the capability, which produces the exact “missing com.apple.developer.healthkit entitlement” error on the phone. Follow the [HealthKit signing guide](docs/healthkit-signing.md) to use an explicit App ID and regenerated profile from an Apple Developer Program team.
 
+If direct HealthKit signing is unavailable, LidlLean has a free local bridge: import Apple's unzipped `export.xml`, or run the documented [daily Apple Health Shortcut](docs/health-shortcut.md), which sends only a daily summary to `lidllean://health-sync` and never uses a cloud proxy.
+
 ## Source layout
 
 ```

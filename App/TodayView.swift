@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct TodayView: View {
     @Environment(\.modelContext) private var context
@@ -7,6 +8,8 @@ struct TodayView: View {
     @Query private var goals: [UserGoal]
     @State private var activity = ActivitySnapshot.unavailable
     @State private var healthError: String?
+    @State private var healthImportMessage: String?
+    @State private var importingHealthXML = false
     private let health = HealthKitClient()
 
     private var today: [MealEntry] { entries.filter { Calendar.current.isDateInToday($0.consumedAt) } }
@@ -35,6 +38,24 @@ struct TodayView: View {
                 if goals.isEmpty { context.insert(UserGoal()) }
                 guard !AppRuntime.isUITest else { return }
                 activity = await health.todaySnapshot()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .healthDataDidChange)) { _ in
+                Task { activity = await health.todaySnapshot() }
+            }
+            .fileImporter(isPresented: $importingHealthXML, allowedContentTypes: [.xml], allowsMultipleSelection: false) { result in
+                guard case .success(let urls) = result, let url = urls.first else { return }
+                Task {
+                    let accessed = url.startAccessingSecurityScopedResource()
+                    defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                    do {
+                        let summary = try await HealthImportStore.shared.importXML(from: url)
+                        activity = await health.todaySnapshot()
+                        healthImportMessage = "Imported \(summary.records) records across \(summary.days) days."
+                        NotificationCenter.default.post(name: .healthDataDidChange, object: nil)
+                    } catch {
+                        healthImportMessage = error.localizedDescription
+                    }
+                }
             }
         }
     }
@@ -149,6 +170,17 @@ struct TodayView: View {
                     Task { await connectHealth() }
                 }
                 .buttonStyle(PrimaryActionStyle())
+                Button("Import Health export", systemImage: "arrow.down.doc") {
+                    importingHealthXML = true
+                }
+                .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity)
+                if let healthImportMessage {
+                    Text(healthImportMessage)
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }

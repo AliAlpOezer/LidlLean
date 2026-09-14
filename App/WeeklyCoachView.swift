@@ -123,6 +123,9 @@ struct WeeklyCoachView: View {
             .sheet(isPresented: $aiPresented) { AICoachView(snapshot: aiSnapshot) }
             .refreshable { await refresh() }
             .task { await refresh() }
+            .onReceive(NotificationCenter.default.publisher(for: .healthDataDidChange)) { _ in
+                Task { await refresh() }
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await refresh() } }
             }

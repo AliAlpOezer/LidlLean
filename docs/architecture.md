@@ -22,7 +22,7 @@ The app must remain valuable offline. Barcode catalog, HealthKit, hosted build, 
 | SwiftUI experience | Navigation, data entry, visual hierarchy | User can understand today at a glance and log in seconds | Human-triggered |
 | Local journal | Foods, immutable nutrient snapshots, targets | Relaunch preserves exact log totals | Human-triggered |
 | Barcode catalog | EAN lookup and normalized nutrition draft | Never auto-logs imported data | Human-triggered |
-| HealthKit adapter | Selected activity reads | Missing authorization leaves the journal usable | Human-triggered |
+| Health data adapter | Selected live HealthKit reads plus local XML/Shortcut fallback | Missing authorization leaves the journal usable and imported summaries remain local | Human-triggered |
 | Shopping planner | Deterministic protein-density ranking | Ranking is explainable from stored values | Human-triggered |
 | AI coach | One advisory response from minimum data | Cannot write records or set targets | Human-triggered |
 | GitHub Actions build | Reproducible unsigned IPA | Artifact contains a successful device build | Autonomous |
@@ -45,6 +45,7 @@ The app must remain valuable offline. Barcode catalog, HealthKit, hosted build, 
 - Local persistence failure: show an error and retain form input. No invisible retry creates a duplicate meal.
 - Open Food Facts unavailable or malformed: use manual entry, preserving the barcode as optional context.
 - HealthKit revoked: display no activity context. Nothing is deleted.
+- Direct HealthKit unavailable: use the local imported Health summary, preserving unknown values rather than substituting zero.
 - OpenRouter unavailable: show no suggestion. Totals and goals stay deterministic and local.
 - Build failure: no IPA artifact is uploaded. The workflow logs compile errors only, not secrets.
 - Re-run build: it creates a new commit-scoped artifact; it cannot overwrite food or health data.

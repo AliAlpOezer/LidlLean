@@ -25,6 +25,13 @@ targets:
       path: App/LidlLean.entitlements
       properties:
         com.apple.developer.healthkit: true
+    info:
+      properties:
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: com.alial.lidllean.health-sync
+            CFBundleURLSchemes:
+              - lidllean
     scheme:
       testTargets: [LidlLeanUITests]
   LidlLeanUITests:
