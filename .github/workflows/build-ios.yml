@@ -24,7 +24,13 @@ jobs:
           DEVICE_TYPE=$(xcrun simctl list devicetypes -j | python3 -c 'import sys,json; d=json.load(sys.stdin)["devicetypes"]; print(next(x["identifier"] for x in d if x["name"] == "iPhone 11"))')
           DEVICE_ID=$(xcrun simctl create LidlLean-iPhone-11 "$DEVICE_TYPE" "$RUNTIME")
           trap 'xcrun simctl delete "$DEVICE_ID"' EXIT
+          set +e
           xcodebuild test -project LidlLean.xcodeproj -scheme LidlLean -destination "platform=iOS Simulator,id=$DEVICE_ID" -resultBundlePath build/PlanningUITests.xcresult CODE_SIGNING_ALLOWED=NO
+          TEST_STATUS=$?
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Build/Products/Debug-iphonesimulator/LidlLean.app' -type d -print -quit)
+          plutil -extract UILaunchStoryboardName raw "$APP_PATH/Info.plist"
+          plutil -extract UIRequiresFullScreen raw "$APP_PATH/Info.plist"
+          exit $TEST_STATUS
       - name: Upload render evidence
         if: always()
         uses: actions/upload-artifact@v4
