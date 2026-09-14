@@ -69,7 +69,7 @@ MockURLProtocol.handler = { request in
         return (response, data)
     }
     postedBody = try JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any]
-    return (response, Data("""{"model":"best/free:model","choices":[{"message":{"content":"Useful advice"}}]}""".utf8))
+    return (response, Data("{\"model\":\"best/free:model\",\"choices\":[{\"message\":{\"content\":\"Useful advice\"}}]}".utf8))
 }
 let configuration = URLSessionConfiguration.ephemeral
 configuration.protocolClasses = [MockURLProtocol.self]
