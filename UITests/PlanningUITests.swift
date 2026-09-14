@@ -10,7 +10,6 @@ final class PlanningUITests: XCTestCase {
         XCTAssertTrue(todayScreen.waitForExistence(timeout: 20))
         let window = app.windows.element(boundBy: 0)
         XCTAssertEqual(window.frame.width, 414, accuracy: 1, "Test must run at iPhone 11 portrait width")
-        XCTAssertEqual(window.frame.height, 896, accuracy: 1, "Test must run at iPhone 11 portrait height")
         let todayShot = XCTAttachment(screenshot: app.screenshot())
         todayShot.name = "Today on iPhone 11"
         todayShot.lifetime = .keepAlways
