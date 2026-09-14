@@ -92,7 +92,7 @@ actor LidlCatalogClient {
         guard let url = components.url else { throw LidlCatalogError.invalidFlyerURL }
         let response: FlyerResponse
         do { response = try JSONDecoder().decode(FlyerResponse.self, from: try await payload(from: url)) }
-        catch { throw LidlCatalogError.invalidResponseDetail("flyer payload decode failed: \(error.localizedDescription)") }
+        catch { throw LidlCatalogError.invalidResponseDetail("flyer payload decode failed: \(Self.describe(error))") }
         guard response.success else { throw LidlCatalogError.invalidResponseDetail("the endpoint reported failure") }
         let offers = response.flyer.products.values.compactMap { product -> LidlOffer? in
             guard let priceText = product.price, let price = Double(priceText.replacingOccurrences(of: ",", with: ".")) else { return nil }
@@ -123,6 +123,22 @@ actor LidlCatalogClient {
         let parts = url.pathComponents.filter { $0 != "/" }
         guard let marker = parts.firstIndex(of: "ar"), marker > 0 else { return nil }
         return parts[marker - 1]
+    }
+
+    private static func describe(_ error: Error) -> String {
+        guard let decodingError = error as? DecodingError else { return error.localizedDescription }
+        switch decodingError {
+        case .keyNotFound(let key, let context):
+            return "missing \(key.stringValue) at \(context.codingPath.map(\.stringValue).joined(separator: \".\"))"
+        case .typeMismatch(let type, let context):
+            return "expected \(type) at \(context.codingPath.map(\.stringValue).joined(separator: \".\")): \(context.debugDescription)"
+        case .valueNotFound(let type, let context):
+            return "missing \(type) at \(context.codingPath.map(\.stringValue).joined(separator: \".\")): \(context.debugDescription)"
+        case .dataCorrupted(let context):
+            return "invalid data at \(context.codingPath.map(\.stringValue).joined(separator: \".\")): \(context.debugDescription)"
+        @unknown default:
+            return error.localizedDescription
+        }
     }
 
     private func saveCache(_ catalog: LidlWeeklyCatalog) throws { try JSONEncoder().encode(CachedCatalog(catalog)).write(to: cacheURL, options: .atomic) }
