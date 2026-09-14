@@ -1,23 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { resolveSimulatorArchive } from "../lib/archive.mjs";
 
-const root = resolve("C:/preview-artifacts");
+const root = resolve("preview-artifacts");
 
 test("accepts a ZIP inside the configured preview-artifacts directory", () => {
-    assert.equal(resolveSimulatorArchive("C:/preview-artifacts/LidlLean.app.zip", root), "C:\\preview-artifacts\\LidlLean.app.zip");
+    assert.equal(resolveSimulatorArchive(join(root, "LidlLean.app.zip"), root), join(root, "LidlLean.app.zip"));
 });
 
 test("rejects a ZIP outside the configured preview-artifacts directory", () => {
-    assert.throws(() => resolveSimulatorArchive("C:/Users/alial/Downloads/LidlLean.app.zip", root), /inside/);
+    assert.throws(() => resolveSimulatorArchive(resolve(root, "..", "outside", "LidlLean.app.zip"), root), /inside/);
 });
 
 test("rejects a non-ZIP archive", () => {
-    assert.throws(() => resolveSimulatorArchive("C:/preview-artifacts/LidlLean.ipa", root), /\.zip/);
+    assert.throws(() => resolveSimulatorArchive(join(root, "LidlLean.ipa"), root), /\.zip/);
 });
 
 test("publishes the complete MCP tool surface without a cloud credential", async () => {
@@ -46,7 +46,7 @@ test("publishes the complete MCP tool surface without a cloud credential", async
         ]);
         const upload = await client.callTool({
             name: "ios_preview_upload",
-            arguments: { archivePath: "C:/preview-artifacts/LidlLean.app.zip" }
+            arguments: { archivePath: join(root, "LidlLean.app.zip") }
         });
         assert.equal(upload.isError, true);
         assert.match(upload.content[0].text, /APPETIZE_ALLOW_PUBLIC_PREVIEW/);
