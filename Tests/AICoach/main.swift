@@ -56,6 +56,20 @@ final class MockURLProtocol: URLProtocol {
 }
 
 var postedBody: [String: Any]?
+func requestBody(_ request: URLRequest) -> Data {
+    if let body = request.httpBody { return body }
+    guard let stream = request.httpBodyStream else { return Data() }
+    stream.open()
+    defer { stream.close() }
+    var result = Data()
+    var buffer = [UInt8](repeating: 0, count: 4_096)
+    while stream.hasBytesAvailable {
+        let count = stream.read(&buffer, maxLength: buffer.count)
+        guard count > 0 else { break }
+        result.append(contentsOf: buffer.prefix(count))
+    }
+    return result
+}
 MockURLProtocol.handler = { request in
     let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
     if request.url?.path == "/api/v1/models" {
@@ -68,7 +82,7 @@ MockURLProtocol.handler = { request in
         """.utf8)
         return (response, data)
     }
-    postedBody = try JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any]
+    postedBody = try JSONSerialization.jsonObject(with: requestBody(request)) as? [String: Any]
     return (response, Data("{\"model\":\"best/free:model\",\"choices\":[{\"message\":{\"content\":\"Useful advice\"}}]}".utf8))
 }
 let configuration = URLSessionConfiguration.ephemeral
