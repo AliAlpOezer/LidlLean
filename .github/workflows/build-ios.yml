@@ -18,6 +18,20 @@ jobs:
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
+      - name: Render the iPhone 11 app before all other checks
+        run: |
+          RUNTIME=$(xcrun simctl list runtimes available -j | python3 -c 'import sys,json; r=json.load(sys.stdin)["runtimes"]; print([x["identifier"] for x in r if x["platform"] == "iOS"][-1])')
+          DEVICE_TYPE=$(xcrun simctl list devicetypes -j | python3 -c 'import sys,json; d=json.load(sys.stdin)["devicetypes"]; print(next(x["identifier"] for x in d if x["name"] == "iPhone 11"))')
+          DEVICE_ID=$(xcrun simctl create LidlLean-iPhone-11 "$DEVICE_TYPE" "$RUNTIME")
+          trap 'xcrun simctl delete "$DEVICE_ID"' EXIT
+          xcodebuild test -project LidlLean.xcodeproj -scheme LidlLean -destination "platform=iOS Simulator,id=$DEVICE_ID" -resultBundlePath build/PlanningUITests.xcresult CODE_SIGNING_ALLOWED=NO
+      - name: Upload render evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: planning-ui-test-results
+          path: build/PlanningUITests.xcresult
+          retention-days: 7
       - name: Verify HealthKit capability wiring
         run: |
           python3 -c 'import plistlib; assert plistlib.load(open("App/LidlLean.entitlements", "rb"))["com.apple.developer.healthkit"] is True'
@@ -34,20 +48,6 @@ jobs:
         run: |
           xcrun swiftc Core/LidlCatalogClient.swift Tests/LidlCatalog/main.swift -o "$RUNNER_TEMP/lidl-catalog-tests"
           "$RUNNER_TEMP/lidl-catalog-tests"
-      - name: Test goal setup on an iPhone simulator
-        run: |
-          RUNTIME=$(xcrun simctl list runtimes available -j | python3 -c 'import sys,json; r=json.load(sys.stdin)["runtimes"]; print([x["identifier"] for x in r if x["platform"] == "iOS"][-1])')
-          DEVICE_TYPE=$(xcrun simctl list devicetypes -j | python3 -c 'import sys,json; d=json.load(sys.stdin)["devicetypes"]; print(next(x["identifier"] for x in d if x["name"] == "iPhone 11"))')
-          DEVICE_ID=$(xcrun simctl create LidlLean-iPhone-11 "$DEVICE_TYPE" "$RUNTIME")
-          trap 'xcrun simctl delete "$DEVICE_ID"' EXIT
-          xcodebuild test -project LidlLean.xcodeproj -scheme LidlLean -destination "platform=iOS Simulator,id=$DEVICE_ID" -resultBundlePath build/PlanningUITests.xcresult CODE_SIGNING_ALLOWED=NO
-      - name: Upload simulator test evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: planning-ui-test-results
-          path: build/PlanningUITests.xcresult
-          retention-days: 7
       - name: Archive unsigned device app
         run: >-
           xcodebuild archive

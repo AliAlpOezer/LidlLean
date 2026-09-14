@@ -6,6 +6,8 @@
 	<string>LidlLean</string>
 	<key>CFBundleName</key>
 	<string>LidlLean</string>
+	<key>UILaunchScreen</key>
+	<dict/>
 	<key>UIDesignRequiresCompatibility</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
