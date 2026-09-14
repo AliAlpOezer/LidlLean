@@ -84,8 +84,7 @@ struct WeeklyCoachView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     planHeader
                     if !configured {
@@ -108,7 +107,6 @@ struct WeeklyCoachView: View {
             }
             .accessibilityIdentifier("planScreen")
             .background(AppTheme.canvas)
-            .navigationBarHidden(true)
             .sheet(isPresented: $settingsPresented) { PlannerSettingsView() }
             .sheet(isPresented: $aiPresented) { AICoachView(snapshot: aiSnapshot) }
             .refreshable { await refresh() }
@@ -118,7 +116,6 @@ struct WeeklyCoachView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await refresh() } }
-            }
         }
     }
 

@@ -31,8 +31,7 @@ struct TodayView: View {
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     header
                     energyCard
@@ -47,7 +46,6 @@ struct TodayView: View {
             }
             .background(AppTheme.canvas.ignoresSafeArea())
             .accessibilityIdentifier("todayScreen")
-            .navigationBarHidden(true)
             .task {
                 if goals.isEmpty { context.insert(UserGoal()) }
                 guard !AppRuntime.isUITest else { return }
@@ -70,7 +68,6 @@ struct TodayView: View {
                         healthImportMessage = error.localizedDescription
                     }
                 }
-            }
         }
     }
 

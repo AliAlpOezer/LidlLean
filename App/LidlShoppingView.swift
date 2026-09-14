@@ -26,8 +26,7 @@ struct LidlShoppingView: View {
     private var totalProtein: Double { basket.filter(\.nutritionConfirmed).reduce(0) { $0 + ($1.proteinPer100g ?? 0) * $1.plannedGrams / 100 } }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
                 shopHeader
                 sectionSwitcher
                 Group {
@@ -37,9 +36,7 @@ struct LidlShoppingView: View {
                 }
             }
             .background(AppTheme.canvas.ignoresSafeArea())
-            .navigationBarHidden(true)
-            .task { await load() }
-        }
+        .task { await load() }
     }
 
     private var shopHeader: some View {

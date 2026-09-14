@@ -44,8 +44,7 @@ struct AddFoodView: View {
     private let catalog = OpenFoodFactsClient()
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
                     header
                     modePicker
@@ -59,7 +58,6 @@ struct AddFoodView: View {
                 .padding(.bottom, 110)
             }
             .background(AppTheme.canvas.ignoresSafeArea())
-            .navigationBarHidden(true)
             .safeAreaInset(edge: .bottom) {
                 Button(action: save) {
                     HStack {
@@ -88,7 +86,6 @@ struct AddFoodView: View {
                 MealCelebrationView(celebration: celebration)
                     .presentationDetents([.height(310)])
                     .presentationDragIndicator(.visible)
-            }
         }
     }
 
