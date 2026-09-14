@@ -108,3 +108,17 @@ struct Nutrients: Codable, Equatable {
         }.joined(separator: ";")
     }
 }
+
+@Model final class WorkoutRecord {
+    @Attribute(.unique) var programDayID: String
+    var completedAt: Date
+    var durationMinutes: Int
+    var note: String
+
+    init(programDayID: String, completedAt: Date = .now, durationMinutes: Int, note: String = "") {
+        self.programDayID = programDayID
+        self.completedAt = completedAt
+        self.durationMinutes = durationMinutes
+        self.note = note
+    }
+}

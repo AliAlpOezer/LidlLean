@@ -65,6 +65,47 @@ The app must remain valuable offline. Barcode catalog, HealthKit, hosted build, 
 
 Camera-based food recognition, recipe planning, micronutrient coverage, cloud sync, and a proxy-backed AI service are later stages with separate design records.
 
+## Training and wellbeing subsystem
+
+### Goal
+
+Turn LidlLean into one calm, motivating daily fitness product where nutrition, a planned calisthenics session, recovery, and weekly progress reinforce each other without conflating their data or encouraging unsafe behaviour.
+
+### Invariants
+
+- A completed workout is an explicit local record, never inferred from opening a screen or an Apple Health estimate.
+- Training plans are versioned program data. Editing a future plan never rewrites a completed workout.
+- Nutrition targets, workout completion, and wellbeing signals have separate owners and can fail independently.
+- Exercise media is optional. A failed remote demo never blocks starting, completing, or recording a session.
+- The app rewards showing up, completing a planned session, and recovery. It never rewards injury-risky volume or calorie restriction.
+
+### Components
+
+| Component | Owns | Correctness criterion | Autonomy |
+| --- | --- | --- | --- |
+| Program library | The imported four-week push, pull, core, skill, and rest-day definitions from the calisthenics program | A date deterministically resolves to one session or recovery day | Deterministic |
+| Workout journal | Explicit completed session, duration, and optional notes | One session can be recorded once per program day | Human-triggered |
+| Training experience | Today’s session, exercise flow, rest guidance, and completion confirmation | A user can start or complete today’s session without navigating a dense schedule | Human-triggered |
+| Daily cockpit | Read-only synthesis of food, activity, session, and recovery state | It never mutates health, meals, or workouts as a side effect of display | Read-only |
+
+### Seams and failures
+
+| From -> to | Carrier and contract | Failure and ordering |
+| --- | --- | --- |
+| Program library -> training experience | Immutable `TrainingDay` value | Missing or malformed program data produces a recovery state, not a fabricated workout |
+| Training experience -> workout journal | SwiftData `WorkoutRecord(programDayID, completedAt, duration, note)` | Stable program-day ID prevents duplicate completion; save failure leaves the session visibly incomplete |
+| Workout journal -> daily cockpit | Read-only date query | An absent record shows “not logged”, never “missed” or “failed” |
+| Exercise -> demo media | Optional HTTPS URL | Failed media shows concise written form guidance and retains all controls |
+
+### Rejected alternatives
+
+| Alternative | Why rejected |
+| --- | --- |
+| Embed the existing HTML page in a web view | It preserves desktop density, localStorage state, and a separate visual system instead of building a coherent native app. |
+| Make workouts a subpage of the food planner | Training has a different daily rhythm and a durable completion record, so it needs a first-class destination. |
+| Import partner tracking into LidlLean | The program is for two people, but LidlLean is a private single-user health product. Partner comparison stays outside the personal journal. |
+| Copy YAZIO’s or the webpage’s exact visual language | We adopt their clarity, motivation, and hierarchy, not their trade dress, palettes, or layouts. |
+
 ## iPhone-first product-surface redesign
 
 ### Goal

@@ -17,6 +17,8 @@ struct RootView: View {
                     LidlShoppingView()
                 case .plan:
                     WeeklyCoachView()
+                case .train:
+                    TrainingView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -76,7 +78,7 @@ private struct AppTabBar: View {
 }
 
 private enum AppTab: String, CaseIterable, Identifiable {
-    case today, log, shop, plan
+    case today, log, shop, plan, train
 
     var id: Self { self }
     var title: String { rawValue.capitalized }
@@ -86,6 +88,7 @@ private enum AppTab: String, CaseIterable, Identifiable {
         case .log: "plus.circle.fill"
         case .shop: "basket.fill"
         case .plan: "chart.line.uptrend.xyaxis"
+        case .train: "figure.strengthtraining.traditional"
         }
     }
 }
