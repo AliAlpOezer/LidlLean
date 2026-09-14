@@ -14,24 +14,15 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.alial.lidllean
         PRODUCT_NAME: LidlLean
-        GENERATE_INFOPLIST_FILE: YES
+        GENERATE_INFOPLIST_FILE: NO
         SWIFT_VERSION: '5.0'
         TARGETED_DEVICE_FAMILY: '1'
-        INFOPLIST_KEY_CFBundleDisplayName: LidlLean
-        INFOPLIST_KEY_NSHealthShareUsageDescription: LidlLean reads the Apple Health activity you select to put your food log in context.
-        INFOPLIST_KEY_NSHealthUpdateUsageDescription: LidlLean does not write Health data in this version.
-        INFOPLIST_KEY_NSCameraUsageDescription: LidlLean uses the camera to scan food barcodes.
     entitlements:
       path: App/LidlLean.entitlements
       properties:
         com.apple.developer.healthkit: true
     info:
-      properties:
-        CFBundleURLTypes:
-          - CFBundleTypeRole: Editor
-            CFBundleURLName: com.alial.lidllean.health-sync
-            CFBundleURLSchemes:
-              - lidllean
+      path: App/Info.plist
     scheme:
       testTargets: [LidlLeanUITests]
   LidlLeanUITests:
