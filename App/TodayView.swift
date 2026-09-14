@@ -11,6 +11,7 @@ struct TodayView: View {
     @State private var healthImportMessage: String?
     @State private var importingHealthXML = false
     private let health = HealthKitClient()
+    let openLog: () -> Void
 
     private var today: [MealEntry] { entries.filter { Calendar.current.isDateInToday($0.consumedAt) } }
     private var totals: Nutrients { today.reduce(.zero) { $0 + $1.nutrients } }
@@ -24,6 +25,7 @@ struct TodayView: View {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     header
                     energyCard
+                    quickActions
                     macroGrid
                     healthCard
                     mealsCard
@@ -63,15 +65,15 @@ struct TodayView: View {
     private var header: some View {
         HStack(alignment: .top, spacing: 14) {
             VStack(alignment: .leading, spacing: 5) {
-                Text("TODAY")
+                Text(Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
                     .font(.caption.weight(.bold))
                     .tracking(1.4)
-                    .foregroundStyle(AppTheme.primary)
-                Text("Your daily cockpit")
+                    .foregroundStyle(AppTheme.success)
+                Text(greeting)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(AppTheme.ink)
-                Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                    .font(.subheadline.weight(.medium))
+                Text(today.isEmpty ? "Start with your first meal." : "\(today.count) meal\(today.count == 1 ? "" : "s") logged so far.")
+                    .font(.subheadline)
                     .foregroundStyle(AppTheme.muted)
             }
             Spacer(minLength: 12)
@@ -80,28 +82,34 @@ struct TodayView: View {
                 .foregroundStyle(AppTheme.ink)
                 .frame(width: 48, height: 48)
                 .background(AppTheme.lime, in: Circle())
-                .overlay { Circle().stroke(AppTheme.ink.opacity(0.08), lineWidth: 1) }
         }
         .padding(.top, 14)
     }
 
     private var energyCard: some View {
-        HStack(spacing: 18) {
+        HStack(alignment: .top, spacing: 18) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Text("ENERGY BUDGET").font(.caption.weight(.bold)).tracking(1.1)
+                    Label("DAILY BUDGET", systemImage: "bolt.fill")
+                        .font(.caption.weight(.bold))
+                        .tracking(1.1)
                     Spacer()
-                    Text("\(Int(caloriesLeft)) left").font(.subheadline.weight(.bold))
+                    Text(caloriesLeft > 0 ? "On track" : "Target reached")
+                        .font(.caption.weight(.bold))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(AppTheme.lime.opacity(0.95), in: Capsule())
+                        .foregroundStyle(AppTheme.ink)
                 }
                 .foregroundStyle(.white.opacity(0.78))
                 HStack(alignment: .lastTextBaseline, spacing: 7) {
-                    Text("\(Int(totals.calories))").font(.system(size: 45, weight: .bold, design: .rounded))
-                    Text("kcal eaten").font(.headline).foregroundStyle(.white.opacity(0.68))
+                    Text("\(Int(caloriesLeft))").font(.system(size: 48, weight: .bold, design: .rounded))
+                    Text("kcal left").font(.headline).foregroundStyle(.white.opacity(0.68))
                 }
                 .foregroundStyle(.white)
                 ProgressView(value: min(totals.calories / max(goal.calorieTarget, 1), 1))
                     .tint(AppTheme.lime).scaleEffect(x: 1, y: 1.7, anchor: .center)
-                Text("Daily target \(Int(goal.calorieTarget)) kcal")
+                Text("\(Int(totals.calories)) eaten of \(Int(goal.calorieTarget)) kcal")
                     .font(.footnote.weight(.medium)).foregroundStyle(.white.opacity(0.68))
             }
             Spacer(minLength: 0)
@@ -123,6 +131,23 @@ struct TodayView: View {
             in: RoundedRectangle(cornerRadius: 28, style: .continuous)
         )
         .shadow(color: AppTheme.ink.opacity(0.18), radius: 18, y: 9)
+    }
+
+    private var quickActions: some View {
+        HStack(spacing: 10) {
+            Button(action: openLog) {
+                Label("Log food", systemImage: "plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PrimaryActionStyle())
+            Button(action: openLog) {
+                Image(systemName: "barcode.viewfinder")
+                    .font(.headline.weight(.bold))
+                    .frame(width: 48, height: 48)
+            }
+            .buttonStyle(QuietActionStyle())
+            .accessibilityLabel("Scan a barcode")
+        }
     }
 
     private var macroGrid: some View {
@@ -217,6 +242,14 @@ struct TodayView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case ..<12: "Good morning"
+        case 12..<18: "Good afternoon"
+        default: "Good evening"
         }
     }
 

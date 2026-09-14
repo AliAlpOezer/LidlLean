@@ -87,12 +87,7 @@ struct WeeklyCoachView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Your week")
-                            .font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(AppTheme.ink)
-                        Text("A live plan from your food log and Apple Health.")
-                            .font(.subheadline).foregroundStyle(AppTheme.muted)
-                    }
+                    planHeader
                     if !configured {
                         SurfaceCard {
                             VStack(alignment: .leading, spacing: 12) {
@@ -112,13 +107,7 @@ struct WeeklyCoachView: View {
                 }.padding()
             }
             .background(AppTheme.canvas)
-            .navigationTitle("Plan")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Goals", systemImage: "slider.horizontal.3") { settingsPresented = true }
-                }
-            }
+            .navigationBarHidden(true)
             .sheet(isPresented: $settingsPresented) { PlannerSettingsView() }
             .sheet(isPresented: $aiPresented) { AICoachView(snapshot: aiSnapshot) }
             .refreshable { await refresh() }
@@ -130,6 +119,24 @@ struct WeeklyCoachView: View {
                 if phase == .active { Task { await refresh() } }
             }
         }
+    }
+
+    private var planHeader: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("WEEKLY PLAN").font(.caption.weight(.bold)).tracking(1.3).foregroundStyle(AppTheme.success)
+                Text("Your week,\nin focus.")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppTheme.ink)
+                Text("A plan built from your own log, not guesses.").font(.subheadline).foregroundStyle(AppTheme.muted)
+            }
+            Spacer()
+            Button("Goals", systemImage: "slider.horizontal.3") { settingsPresented = true }
+                .labelStyle(.iconOnly)
+                .buttonStyle(QuietActionStyle())
+                .accessibilityLabel("Edit goals")
+        }
+        .padding(.top, 14)
     }
 
     private var yesterdayCard: some View {
@@ -159,29 +166,59 @@ struct WeeklyCoachView: View {
     }
 
     private var weekCard: some View {
-        SurfaceCard {
-            VStack(alignment: .leading, spacing: 12) {
-                SectionEyebrow(title: "Monday to Sunday")
-                Text("\(Int(plan.loggedThisWeek)) / \(Int(plan.weeklyTarget)) kcal").font(.title2.bold())
-                ProgressView(value: min(plan.loggedThisWeek / max(plan.weeklyTarget, 1), 1))
-                if let average = plan.remainingAverage {
-                    Text("\(Int(average)) kcal/day would fit the remaining \(plan.remainingDays) days, including today.")
-                    Text("This is budget arithmetic. Your daily target stays at \(Int(target)) kcal; yesterday does not automatically lower it.")
-                        .font(.caption).foregroundStyle(AppTheme.muted)
-                } else {
-                    Text("\(plan.unreviewedDays) past day(s) need review before a remaining-week average can be calculated.")
-                }
-                Text("Today: \(Int(plan.proteinRemainingToday)) g protein and \(Int(plan.caloriesRemainingToday)) kcal remaining against your chosen targets.")
-                Chart(plan.days) { day in
-                    BarMark(x: .value("Day", day.date, unit: .day), y: .value("Logged kcal", day.calories))
-                        .foregroundStyle(day.reviewed ? AppTheme.lime : AppTheme.muted)
-                    RuleMark(y: .value("Daily target", target)).foregroundStyle(AppTheme.orange)
-                }
-                .frame(height: 170)
-                .chartXAxis { AxisMarks(values: .stride(by: .day)) { value in AxisValueLabel(format: .dateTime.weekday(.narrow)) } }
-                Text("Blue: reviewed. Gray: incomplete or not reviewed.").font(.caption).foregroundStyle(AppTheme.muted)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Label("THIS WEEK", systemImage: "calendar")
+                    .font(.caption.weight(.bold))
+                    .tracking(1.1)
+                    .foregroundStyle(.white.opacity(0.72))
+                Spacer()
+                Text("\(plan.remainingDays) days left")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(AppTheme.ink)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(AppTheme.lime, in: Capsule())
             }
+            Text("\(Int(plan.loggedThisWeek))")
+                .font(.system(size: 44, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+            Text("of \(Int(plan.weeklyTarget)) kcal logged")
+                .font(.headline)
+                .foregroundStyle(.white.opacity(0.7))
+            ProgressView(value: min(plan.loggedThisWeek / max(plan.weeklyTarget, 1), 1))
+                .tint(AppTheme.lime)
+                .scaleEffect(x: 1, y: 1.5, anchor: .center)
+            HStack(spacing: 8) {
+                MetricPill(icon: "flame.fill", value: "\(Int(plan.caloriesRemainingToday))", label: "kcal today", tint: AppTheme.lime)
+                MetricPill(icon: "dumbbell.fill", value: "\(Int(plan.proteinRemainingToday))g", label: "protein left", tint: AppTheme.lime)
+            }
+            .padding(.top, 3)
+            .foregroundStyle(AppTheme.ink)
+            if let average = plan.remainingAverage {
+                Text("\(Int(average)) kcal/day keeps the weekly budget on course.")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.78))
+            } else {
+                Text("\(plan.unreviewedDays) past day(s) need review before the remaining-week average is ready.")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.78))
+            }
+            Chart(plan.days) { day in
+                BarMark(x: .value("Day", day.date, unit: .day), y: .value("Logged kcal", day.calories))
+                    .foregroundStyle(day.reviewed ? AppTheme.lime : .white.opacity(0.24))
+                RuleMark(y: .value("Daily target", target)).foregroundStyle(.white.opacity(0.46))
+            }
+            .frame(height: 132)
+            .chartXAxis { AxisMarks(values: .stride(by: .day)) { value in AxisValueLabel(format: .dateTime.weekday(.narrow)).foregroundStyle(.white.opacity(0.7)) } }
         }
+        .padding(20)
+        .background(
+            LinearGradient(colors: [AppTheme.hero, AppTheme.primary], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+        )
+        .overlay { RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(.white.opacity(0.08)) }
+        .shadow(color: AppTheme.ink.opacity(0.14), radius: 18, y: 9)
     }
 
     private var weightCard: some View {

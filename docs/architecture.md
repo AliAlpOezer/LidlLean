@@ -65,6 +65,41 @@ The app must remain valuable offline. Barcode catalog, HealthKit, hosted build, 
 
 Camera-based food recognition, recipe planning, micronutrient coverage, cloud sync, and a proxy-backed AI service are later stages with separate design records.
 
+## iPhone-first product-surface redesign
+
+### Goal
+
+Make the daily loop feel like a confident personal operating system: understand the day in seconds, log a food in a few intentional taps, decide what to buy, and understand the week without reading an instruction manual.
+
+### Invariants
+
+- The primary action for each tab is reachable in the lower half of an iPhone 11 screen and has a minimum 44-point hit target.
+- A screen never makes the user interpret a dense block of explanatory text before they can take its primary action.
+- The visual system uses one accent for state and action, not a different decorative color for every card.
+- Content adapts to the safe area, Dynamic Type, and narrower iPhones. No screen hard-codes iPhone 11 pixels.
+- A missing network, Health, or AI integration looks like a clear state with a recovery action, never like an unfinished interface.
+
+### Components and seams
+
+| Component | Owns | Carrier | Failure behavior |
+| --- | --- | --- | --- |
+| Shell navigation | Four stable top-level destinations and cross-tab quick actions | Tab selection binding | A tab remains reachable even when its content is empty |
+| Design system | Color roles, typography, surfaces, spacing, buttons, and data tiles | Shared SwiftUI components in AppTheme.swift | Views fall back to native controls rather than bespoke layout |
+| Daily dashboard | Today’s calorie, macro, activity, and meal priorities | Read-only derived totals from SwiftData and Health adapter | Displays an explicit unavailable state without blocking logging |
+| Food capture | Scanner, lookup, saved food, and manual entry modes | Local draft state -> confirmed SwiftData transaction | Manual logging remains available when scan or lookup fails |
+| Shopping and plan | Public Lidl data and deterministic weekly suggestions | Existing catalog and planner contracts | Cached or empty states retain their actionable primary path |
+
+The shell depends on the shared visual system. Feature screens depend on the data models and service contracts but not on one another. The design system must not own product logic, which keeps visual redesigns reversible.
+
+### Rejected alternatives
+
+| Alternative | Why rejected |
+| --- | --- |
+| A bespoke floating navigation bar | It would compete with iOS safe-area behavior and make accessibility less reliable than the native tab bar. |
+| A card for every sentence | It creates visual noise, wastes the iPhone 11 viewport, and hides the user’s next action. |
+| Hard-coded iPhone 11 dimensions | It fails on Dynamic Type, landscape, and future iPhones. SwiftUI safe areas and adaptive grids preserve the intended hierarchy. |
+| Copying YAZIO’s surface literally | The useful pattern is fast logging plus an at-a-glance dashboard, not another product’s colors, mascot, or layout. |
+
 ## Lidl public-web ingestion subsystem
 
 ### Goal

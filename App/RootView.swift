@@ -2,13 +2,22 @@ import SwiftUI
 
 struct RootView: View {
     @State private var healthSyncMessage: String?
+    @State private var selection = AppTab.today
 
     var body: some View {
-        TabView {
-            TodayView().tabItem { Label("Today", systemImage: "circle.grid.2x2.fill") }
-            AddFoodView().tabItem { Label("Log", systemImage: "plus.circle.fill") }
-            LidlShoppingView().tabItem { Label("Shop", systemImage: "basket.fill") }
-            WeeklyCoachView().tabItem { Label("Plan", systemImage: "chart.line.uptrend.xyaxis") }
+        TabView(selection: $selection) {
+            TodayView { selection = .log }
+                .tabItem { Label("Today", systemImage: "circle.grid.2x2.fill") }
+                .tag(AppTab.today)
+            AddFoodView()
+                .tabItem { Label("Log", systemImage: "plus.circle.fill") }
+                .tag(AppTab.log)
+            LidlShoppingView()
+                .tabItem { Label("Shop", systemImage: "basket.fill") }
+                .tag(AppTab.shop)
+            WeeklyCoachView()
+                .tabItem { Label("Plan", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(AppTab.plan)
         }
         .modifier(AppTabBarStyle())
         .background(AppTheme.canvas.ignoresSafeArea())
@@ -31,6 +40,10 @@ struct RootView: View {
             Text(healthSyncMessage ?? "")
         }
     }
+}
+
+private enum AppTab: Hashable {
+    case today, log, shop, plan
 }
 
 extension Notification.Name {

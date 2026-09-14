@@ -200,19 +200,81 @@ struct LidlShoppingView: View {
     }
 
     private var basketView: some View {
-        List {
-            Section {
-                LabeledContent("Known price subtotal", value: totalPrice.formatted(.currency(code: "EUR")))
-                LabeledContent("Confirmed calorie subtotal", value: "\(Int(totalCalories)) kcal")
-                LabeledContent("Confirmed protein subtotal", value: "\(Int(totalProtein)) g")
-                Text("\(basket.filter { !$0.priceKnown }.count) items lack a price; \(basket.filter { !$0.nutritionConfirmed }.count) need a nutrition label. These are excluded from subtotals.").font(.caption)
-            } header: { Text("PLAN TOTAL") }
-            Section("ITEMS") {
-                if basket.isEmpty { Text("Add Lidl offers to build your week.").foregroundStyle(AppTheme.muted) }
-                ForEach(basket) { item in BasketRow(item: item) }
-                    .onDelete { indexes in indexes.map { basket[$0] }.forEach(context.delete) }
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Label("YOUR BASKET", systemImage: "basket.fill")
+                            .font(.caption.weight(.bold))
+                            .tracking(1.1)
+                            .foregroundStyle(.white.opacity(0.72))
+                        Spacer()
+                        Text("\(basket.count) item\(basket.count == 1 ? "" : "s")")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(AppTheme.ink)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(AppTheme.lime, in: Capsule())
+                    }
+                    HStack(alignment: .lastTextBaseline, spacing: 6) {
+                        Text(totalPrice.formatted(.currency(code: "EUR"))).font(.system(size: 34, weight: .bold, design: .rounded))
+                        Text("known subtotal").font(.subheadline.weight(.medium)).foregroundStyle(.white.opacity(0.68))
+                    }
+                    HStack(spacing: 8) {
+                        MetricPill(icon: "flame.fill", value: "\(Int(totalCalories))", label: "kcal", tint: AppTheme.lime)
+                        MetricPill(icon: "dumbbell.fill", value: "\(Int(totalProtein))g", label: "protein", tint: AppTheme.lime)
+                    }
+                }
+                .padding(20)
+                .foregroundStyle(.white)
+                .background(LinearGradient(colors: [AppTheme.hero, AppTheme.primary], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .padding(.horizontal, 16)
+                if basket.isEmpty {
+                    ContentUnavailableView("Your basket is empty", systemImage: "basket", description: Text("Add a Lidl offer or a protein suggestion to start planning your week."))
+                        .padding(.top, 36)
+                } else {
+                    HStack {
+                        SectionEyebrow(title: "Planned items")
+                        Spacer()
+                        Text("Tap an item to adjust it").font(.caption).foregroundStyle(AppTheme.muted)
+                    }
+                    .padding(.horizontal, 16)
+                    ForEach(basket) { item in
+                        SurfaceCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack(alignment: .top) {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(item.name).font(.headline).foregroundStyle(AppTheme.ink)
+                                        Text(item.priceKnown ? (item.unitPrice * Double(item.quantity)).formatted(.currency(code: "EUR")) : "Price unknown")
+                                            .font(.subheadline.weight(.bold)).foregroundStyle(item.priceKnown ? AppTheme.success : AppTheme.warning)
+                                    }
+                                    Spacer()
+                                    Button(role: .destructive) {
+                                        context.delete(item)
+                                        try? context.save()
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .frame(width: 40, height: 40)
+                                            .background(AppTheme.elevated, in: Circle())
+                                    }
+                                    .accessibilityLabel("Remove \(item.name)")
+                                }
+                                BasketRow(item: item)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                    if basket.contains(where: { !$0.priceKnown || !$0.nutritionConfirmed }) {
+                        Text("Unknown prices and unconfirmed nutrition are excluded from totals.")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(AppTheme.muted)
+                            .padding(.horizontal, 16)
+                    }
+                }
             }
-        }.scrollContentBackground(.hidden).background(AppTheme.canvas)
+            .padding(.top, 6)
+            .padding(.bottom, 24)
+        }
     }
 
     private func load(force: Bool = false) async {
@@ -288,7 +350,6 @@ private struct BasketRow: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack { Text(item.name).fontWeight(.semibold); Spacer(); Text(item.priceKnown ? (item.unitPrice * Double(item.quantity)).formatted(.currency(code: "EUR")) : "Price unknown").foregroundStyle(AppTheme.lime) }
             Text(nutrition).font(.caption).foregroundStyle(AppTheme.muted)
             Stepper("Quantity: \(item.quantity)", value: $item.quantity, in: 1...20)
             Stepper("Total planned amount: \(Int(item.plannedGrams)) g", value: $item.plannedGrams, in: 0...20000, step: 25)
