@@ -82,7 +82,9 @@ actor LidlCatalogClient {
         }
         let day = Calendar.current.startOfDay(for: now)
         let candidates = catalogs.flatMap(\.events).filter { $0.endDate >= day }.sorted { $0.startDate < $1.startDate }
-        guard let result = candidates.first(where: { $0.startDate <= now && $0.endDate >= now }) ?? candidates.first else { throw LidlCatalogError.noApplicableFlyer }
+        let weeklyProspects = candidates.filter { $0.name.localizedCaseInsensitiveContains("Aktionsprospekt") }
+        let preferred = weeklyProspects.isEmpty ? candidates : weeklyProspects
+        guard let result = preferred.first(where: { $0.startDate <= now && $0.endDate >= now }) ?? preferred.first else { throw LidlCatalogError.noApplicableFlyer }
         return result
     }
 
