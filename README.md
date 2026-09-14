@@ -31,7 +31,7 @@ project.yml       XcodeGen project definition
 - Barcode lookup uses Open Food Facts. Imported values must be checked against the package label.
 - Apple Health is read-only in v1. Food logs stay in the local SwiftData store.
 - Lidl catalogs are discovered from its public webpage and read through the webpage's flyer service. Many grocery offers exist only as flyer images; the structured product catalog does not cover every grocery. National flyers are not store availability guarantees.
-- Plan computes weekly planning locally. OpenRouter requests and Keychain configuration are not implemented; older descriptions overstated this.
+- Plan computes weekly planning locally. Its optional AI review previews a name-free aggregate before consent, keeps the user's OpenRouter key in Keychain, selects the highest-ranked current free text model, and denies providers that collect data.
 
 ## Weekly planning
 
@@ -40,3 +40,5 @@ In Plan, set your weekly calorie budget and daily protein target. The weight-los
 Suggestions use foods whose nutrition you have checked. Portion sizes fit today's remaining calorie and protein allowances. Matching Lidl listings require the same product name and an applicable validity window; otherwise availability and price remain unknown. Shopping totals show confirmed subtotals and the number of unmatched items. Ingredient/allergen verification remains a label check, not a product-name inference.
 
 See [planning decisions](docs/weekly-planning.md) for calendar rules and calculation limits. CI runs executable Swift planning scenarios before the iOS archive. Compilation and arithmetic tests do not verify HealthKit permissions on your physical phone.
+
+The optional AI review is documented in [AI coaching boundary](docs/ai-coach.md). It sends no food names, barcodes, raw Health samples, dates, location, or identifiers. OpenRouter and its selected provider still receive the previewed aggregate, and free-model availability is not guaranteed.

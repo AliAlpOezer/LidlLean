@@ -11,7 +11,7 @@
 - Add offers to a persistent basket with quantity, planned grams, checkout total, calorie estimate, and protein estimate. Nutrition estimates must come from verified local foods or a small explicit reference table; unknown values remain visibly unconfirmed.
 - Calculate a Monday-to-Sunday plan from reviewed food logs and available Apple Health energy records.
 - Recommend portions from nutrition labels the user has confirmed, with exact Lidl offer matches when available.
-- Keep OpenRouter as a future opt-in enhancement. The core plan must remain deterministic and useful without it.
+- Offer an explicitly triggered OpenRouter interpretation of a previewed aggregate snapshot. The core plan remains deterministic and useful without it.
 
 ## Visual direction
 
@@ -23,5 +23,6 @@ The app should feel calm, assured, and modern rather than clinical or decorative
 - Barcode lookup failure leaves manual entry ready to use.
 - Health authorization denial does not disable any food function.
 - The generated target points to `App/LidlLean.entitlements`, where `com.apple.developer.healthkit` is true, and CI fails if either condition changes.
+- The OpenRouter key is stored only in Keychain, the exact prompt is previewed before consent, and AI output cannot mutate app records.
 - The app never contains a committed API key or signing credential.
 - The CI artifact is an IPA exported only after a successful Xcode archive.

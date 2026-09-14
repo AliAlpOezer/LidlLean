@@ -22,6 +22,7 @@ struct WeeklyCoachView: View {
     @State private var selectedDay = Calendar.current.startOfDay(for: .now)
     @State private var now = Date.now
     @State private var loading = false
+    @State private var aiPresented = false
     private let health = HealthKitClient()
     private let lidl = LidlCatalogClient()
     private var calendar: Calendar { .current }
@@ -42,6 +43,25 @@ struct WeeklyCoachView: View {
     }
     private var plan: WeeklyPlan {
         WeeklyPlanner.make(days: history, dailyCalories: target, dailyProtein: proteinTarget, now: now, calendar: calendar)
+    }
+    private var aiSnapshot: AICoachSnapshot {
+        let today = calendar.startOfDay(for: now)
+        let pastDays = plan.days.filter { $0.date < today }
+        return AICoachSnapshot(
+            weeklyTarget: plan.weeklyTarget,
+            loggedThisWeek: plan.loggedThisWeek,
+            remainingDays: plan.remainingDays,
+            remainingDailyAverage: plan.remainingAverage,
+            caloriesRemainingToday: plan.caloriesRemainingToday,
+            proteinRemainingToday: plan.proteinRemainingToday,
+            yesterdayCalories: plan.yesterday?.reviewed == true ? plan.yesterday?.calories : nil,
+            yesterdayProtein: plan.yesterday?.reviewed == true ? plan.yesterday?.protein : nil,
+            yesterdayDeficit: plan.yesterday?.deficit,
+            reviewedPastDays: pastDays.filter(\.reviewed).count,
+            unreviewedPastDays: pastDays.filter { !$0.reviewed }.count,
+            availableFoodOptions: recommendations.count,
+            weeklyWeightLossGoal: weightGoal
+        )
     }
     private var recommendations: [(food: Food, grams: Double, offer: LidlOffer?)] {
         guard configured else { return [] }
@@ -88,6 +108,7 @@ struct WeeklyCoachView: View {
                     if configured { weekCard }
                     historyCard
                     if configured { recommendationsCard }
+                    if configured { aiCard }
                 }.padding()
             }
             .background(AppTheme.canvas)
@@ -99,6 +120,7 @@ struct WeeklyCoachView: View {
                 }
             }
             .sheet(isPresented: $settingsPresented) { PlannerSettingsView() }
+            .sheet(isPresented: $aiPresented) { AICoachView(snapshot: aiSnapshot) }
             .refreshable { await refresh() }
             .task { await refresh() }
             .onChange(of: scenePhase) { _, phase in
@@ -232,6 +254,21 @@ struct WeeklyCoachView: View {
                     Divider()
                 }
                 if let offersMessage { Text(offersMessage).font(.caption).foregroundStyle(AppTheme.muted) }
+            }
+        }
+    }
+
+    private var aiCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionEyebrow(title: "Optional AI review")
+                Text("Ask a current free model to interpret this week's aggregate numbers.")
+                    .font(.title3.bold()).foregroundStyle(AppTheme.ink)
+                Text("You preview the exact request first. AI cannot edit your goals, food log, Health data, or basket.")
+                    .font(.subheadline).foregroundStyle(AppTheme.muted)
+                Button("Preview AI request", systemImage: "sparkles") { aiPresented = true }
+                    .buttonStyle(PrimaryActionStyle())
+                    .accessibilityIdentifier("previewAIRequest")
             }
         }
     }
