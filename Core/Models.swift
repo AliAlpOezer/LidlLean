@@ -70,10 +70,11 @@ struct Nutrients: Codable, Equatable {
     var productURL: String?
     var imageURL: String?
     var addedAt: Date
+    var plannedFor: Date
     var priceKnown: Bool = true
     var nutritionConfirmed: Bool = false
 
-    init(offerID: String, name: String, unitPrice: Double, productURL: String?, imageURL: String?) {
+    init(offerID: String, name: String, unitPrice: Double, productURL: String?, imageURL: String?, plannedFor: Date = .now) {
         id = UUID()
         self.offerID = offerID
         self.name = name
@@ -85,6 +86,7 @@ struct Nutrients: Codable, Equatable {
         self.productURL = productURL
         self.imageURL = imageURL
         addedAt = .now
+        self.plannedFor = Calendar.current.startOfDay(for: plannedFor)
     }
 
     var estimatedCalories: Double? { caloriesPer100g.map { $0 * plannedGrams / 100 } }

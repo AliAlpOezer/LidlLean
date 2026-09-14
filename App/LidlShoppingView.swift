@@ -11,6 +11,8 @@ struct LidlShoppingView: View {
     @State private var foodOnly = true
     @State private var selection = 0
     @State private var flyerPage = 0
+    @State private var flyerProductsPresented = false
+    @State private var shoppingDay = Date.now
     @State private var refreshing = false
     private let client = LidlCatalogClient()
 
@@ -95,17 +97,17 @@ struct LidlShoppingView: View {
             LazyVStack(spacing: 14) {
                 catalogHeader
                 HStack {
-                    Label("Food only", systemImage: "fork.knife")
+                    Label("Food offers", systemImage: "fork.knife")
                         .font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.ink)
                     Spacer()
-                    Toggle("Food only", isOn: $foodOnly).labelsHidden().tint(AppTheme.success)
+                    Toggle("Food offers only", isOn: $foodOnly).labelsHidden().tint(AppTheme.success)
                     Text("\(visibleOffers.count)").font(.caption.weight(.bold)).foregroundStyle(AppTheme.primary)
                 }.padding(.horizontal)
                 ForEach(visibleOffers) { offer in
-                    OfferCard(offer: offer, alreadyAdded: basket.contains(where: { $0.offerID == offer.id }), knownFood: foods.first(where: { $0.name.caseInsensitiveCompare(offer.title) == .orderedSame })) { add(offer) }
+                    OfferCard(offer: offer, alreadyAdded: basket.contains(where: { $0.offerID == basketIdentifier(for: offer, day: .now) }), knownFood: foods.first(where: { $0.name.caseInsensitiveCompare(offer.title) == .orderedSame })) { add(offer) }
                 }
                 if visibleOffers.isEmpty, catalog != nil {
-                    ContentUnavailableView("No matching structured offers", systemImage: "cart", description: Text("Switch off Food only to browse every product, or view the complete flyer pages."))
+                    ContentUnavailableView("No food offers found", systemImage: "fork.knife", description: Text("Switch off the Food offers filter to browse every listed product."))
                 }
             }.padding(.bottom, 20)
         }.searchable(text: $search, prompt: "Search this week's offers")
@@ -183,16 +185,33 @@ struct LidlShoppingView: View {
                                         .overlay { ProgressView() }
                                 }
                                 .padding(.horizontal)
+                                .contentShape(Rectangle())
+                                .onTapGesture { flyerProductsPresented = true }
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityHint("Opens products from this flyer")
                                 .tag(index)
                             }
                         }
                         .frame(height: 500)
                         .tabViewStyle(.page(indexDisplayMode: .never))
+                        Button { flyerProductsPresented = true } label: {
+                            Label("Shop products from this flyer", systemImage: "basket.badge.plus")
+                                .frame(maxWidth: .infinity, minHeight: 50)
+                        }
+                        .buttonStyle(PrimaryActionStyle())
+                        .padding(.horizontal, 16)
                     }
                     Link("Open complete flyer on Lidl.de", destination: catalog.flyerURL)
                         .font(.headline).foregroundStyle(AppTheme.primary).frame(minHeight: 44)
                 }
             }.padding(.bottom, 24)
+        }
+        .sheet(isPresented: $flyerProductsPresented) {
+            if let catalog {
+                FlyerProductPicker(offers: catalog.offers, basketOfferIDs: Set(basket.map(\.offerID)), shoppingDay: $shoppingDay) { offer in
+                    add(offer, for: shoppingDay)
+                }
+            }
         }
     }
 
@@ -244,6 +263,8 @@ struct LidlShoppingView: View {
                                         Text(item.name).font(.headline).foregroundStyle(AppTheme.ink)
                                         Text(item.priceKnown ? (item.unitPrice * Double(item.quantity)).formatted(.currency(code: "EUR")) : "Price unknown")
                                             .font(.subheadline.weight(.bold)).foregroundStyle(item.priceKnown ? AppTheme.success : AppTheme.warning)
+                                        Text("Buy on \(item.plannedFor.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))")
+                                            .font(.caption.weight(.medium)).foregroundStyle(AppTheme.muted)
                                     }
                                     Spacer()
                                     Button(role: .destructive) {
@@ -281,9 +302,10 @@ struct LidlShoppingView: View {
         catch { errorMessage = error.localizedDescription }
     }
 
-    private func add(_ offer: LidlOffer) {
-        guard !basket.contains(where: { $0.offerID == offer.id }) else { return }
-        let item = ShoppingItem(offerID: offer.id, name: offer.title, unitPrice: offer.price, productURL: offer.productURL?.absoluteString, imageURL: offer.imageURL?.absoluteString)
+    private func add(_ offer: LidlOffer, for day: Date = .now) {
+        let identifier = basketIdentifier(for: offer, day: day)
+        guard !basket.contains(where: { $0.offerID == identifier }) else { return }
+        let item = ShoppingItem(offerID: identifier, name: offer.title, unitPrice: offer.price, productURL: offer.productURL?.absoluteString, imageURL: offer.imageURL?.absoluteString, plannedFor: day)
         if let estimate = NutritionMatcher.estimate(for: offer.title, knownFoods: foods) {
             item.caloriesPer100g = estimate.calories
             item.proteinPer100g = estimate.protein
@@ -335,6 +357,65 @@ private struct OfferCard: View {
         .overlay { RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(AppTheme.ink.opacity(0.055)) }
         .shadow(color: AppTheme.ink.opacity(0.045), radius: 12, y: 6)
         .padding(.horizontal, 16)
+    }
+}
+
+private func basketIdentifier(for offer: LidlOffer, day: Date) -> String {
+    "\(offer.id):\(Int(Calendar.current.startOfDay(for: day).timeIntervalSince1970))"
+}
+
+private struct FlyerProductPicker: View {
+    let offers: [LidlOffer]
+    let basketOfferIDs: Set<String>
+    @Binding var shoppingDay: Date
+    let onAdd: (LidlOffer) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var search = ""
+
+    private var visibleOffers: [LidlOffer] {
+        guard !search.isEmpty else { return offers }
+        return offers.filter { $0.title.localizedCaseInsensitiveContains(search) || $0.brand?.localizedCaseInsensitiveContains(search) == true }
+    }
+
+    private func isAdded(_ offer: LidlOffer) -> Bool { basketOfferIDs.contains(basketIdentifier(for: offer, day: shoppingDay)) }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    DatePicker("Shopping day", selection: $shoppingDay, displayedComponents: .date)
+                    Text("Choose a day, then add any current flyer product to that day’s basket.")
+                        .font(.caption).foregroundStyle(AppTheme.muted)
+                }
+                Section("Products in this flyer") {
+                    ForEach(visibleOffers) { offer in
+                        HStack(spacing: 12) {
+                            AsyncImage(url: offer.imageURL) { $0.resizable().scaledToFit() } placeholder: { Image(systemName: "cart.fill").foregroundStyle(AppTheme.muted) }
+                                .frame(width: 48, height: 48)
+                            VStack(alignment: .leading, spacing: 3) {
+                                if let brand = offer.brand { Text(brand.uppercased()).font(.caption2.weight(.bold)).foregroundStyle(AppTheme.muted) }
+                                Text(offer.title).font(.subheadline.weight(.semibold)).lineLimit(2)
+                                Text(offer.price.formatted(.currency(code: "EUR"))).font(.caption.weight(.bold)).foregroundStyle(AppTheme.success)
+                            }
+                            Spacer()
+                            Button {
+                                onAdd(offer)
+                            } label: {
+                                Image(systemName: isAdded(offer) ? "checkmark" : "plus")
+                                    .font(.headline.weight(.bold)).frame(width: 38, height: 38)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(isAdded(offer) ? AppTheme.success : AppTheme.lime)
+                            .disabled(isAdded(offer))
+                            .accessibilityLabel(isAdded(offer) ? "Added to basket" : "Add \(offer.title) for selected day")
+                        }
+                    }
+                }
+            }
+            .searchable(text: $search, prompt: "Search flyer products")
+            .navigationTitle("Add from flyer")
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+        }
     }
 }
 
