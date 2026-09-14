@@ -23,6 +23,9 @@ targets:
         com.apple.developer.healthkit: true
     info:
       path: App/Info.plist
+      properties:
+        UILaunchStoryboardName: LaunchScreen
+        UIRequiresFullScreen: true
     scheme:
       testTargets: [LidlLeanUITests]
   LidlLeanUITests:

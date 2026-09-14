@@ -28,6 +28,7 @@ jobs:
           xcodebuild test -project LidlLean.xcodeproj -scheme LidlLean -destination "platform=iOS Simulator,id=$DEVICE_ID" -resultBundlePath build/PlanningUITests.xcresult CODE_SIGNING_ALLOWED=NO
           TEST_STATUS=$?
           APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Build/Products/Debug-iphonesimulator/LidlLean.app' -type d -print -quit)
+          plutil -p "$APP_PATH/Info.plist"
           plutil -extract UILaunchStoryboardName raw "$APP_PATH/Info.plist"
           plutil -extract UIRequiresFullScreen raw "$APP_PATH/Info.plist"
           exit $TEST_STATUS
