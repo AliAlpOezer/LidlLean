@@ -15,7 +15,7 @@ final class PlanningUITests: XCTestCase {
         todayShot.name = "Today on iPhone 11"
         todayShot.lifetime = .keepAlways
         add(todayShot)
-        app.tabBars.buttons["Plan"].tap()
+        app.buttons["Plan"].tap()
         XCTAssertTrue(app.buttons["Set up my plan"].waitForExistence(timeout: 10))
         app.buttons["Set up my plan"].tap()
         let calories = app.textFields["weeklyCalories"]

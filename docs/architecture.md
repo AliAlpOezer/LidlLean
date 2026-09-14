@@ -95,7 +95,7 @@ The shell depends on the shared visual system. Feature screens depend on the dat
 
 | Alternative | Why rejected |
 | --- | --- |
-| A bespoke floating navigation bar | It would compete with iOS safe-area behavior and make accessibility less reliable than the native tab bar. |
+| iOS 26 system `TabView` shell | Its Liquid Glass container rendered this app's root as a 137.5-point-inset floating surface on the iPhone 11 simulator. A small owned tab strip keeps the familiar four destinations while preserving full-screen geometry and explicit accessibility labels. |
 | A card for every sentence | It creates visual noise, wastes the iPhone 11 viewport, and hides the user’s next action. |
 | Hard-coded iPhone 11 dimensions | It fails on Dynamic Type, landscape, and future iPhones. SwiftUI safe areas and adaptive grids preserve the intended hierarchy. |
 | Copying YAZIO’s surface literally | The useful pattern is fast logging plus an at-a-glance dashboard, not another product’s colors, mascot, or layout. |
