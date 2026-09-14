@@ -23,13 +23,13 @@ final class PlanningUITests: XCTestCase {
         let save = app.buttons["saveGoals"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
         save.tap()
-        XCTAssertTrue(app.navigationBars["Plan"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.scrollViews["planScreen"].waitForExistence(timeout: 10))
         app.swipeUp()
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Weekly coach after saving goals"
         screenshot.lifetime = .keepAlways
         add(screenshot)
-        app.buttons["Goals"].tap()
+        app.buttons["Edit goals"].tap()
         XCTAssertTrue(calories.waitForExistence(timeout: 10))
         let caloriesValue = (calories.value as? String ?? "").filter(\.isNumber)
         XCTAssertEqual(caloriesValue, "14000", "Weekly target must persist through sheet dismissal")

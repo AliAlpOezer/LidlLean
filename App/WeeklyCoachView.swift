@@ -106,6 +106,7 @@ struct WeeklyCoachView: View {
                     if configured { aiCard }
                 }.padding()
             }
+            .accessibilityIdentifier("planScreen")
             .background(AppTheme.canvas)
             .navigationBarHidden(true)
             .sheet(isPresented: $settingsPresented) { PlannerSettingsView() }
