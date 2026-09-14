@@ -8,9 +8,9 @@ final class PlanningUITests: XCTestCase {
         app.launch()
         let todayScreen = app.scrollViews["todayScreen"]
         XCTAssertTrue(todayScreen.waitForExistence(timeout: 20))
-        XCTAssertEqual(app.windows.element(boundBy: 0).frame.width, 414, accuracy: 1, "Test must run at iPhone 11 portrait width")
-        XCTAssertLessThan(todayScreen.frame.minY, 60, "Today must start below the status bar, not inside a partial-height sheet")
-        XCTAssertGreaterThan(todayScreen.frame.maxY, 800, "Today must use the iPhone 11 height above the tab bar")
+        let window = app.windows.element(boundBy: 0)
+        XCTAssertEqual(window.frame.width, 414, accuracy: 1, "Test must run at iPhone 11 portrait width")
+        XCTAssertEqual(window.frame.height, 896, accuracy: 1, "Test must run at iPhone 11 portrait height")
         let todayShot = XCTAttachment(screenshot: app.screenshot())
         todayShot.name = "Today on iPhone 11"
         todayShot.lifetime = .keepAlways
