@@ -28,6 +28,10 @@ export function resolveSimulatorArchive(inputPath, artifactDirectory = previewAr
     return archivePath;
 }
 
+export function containsSimulatorAppBundle(entries) {
+    return entries.some((entry) => /(^|\/)[^/]+\.app\/Info\.plist$/i.test(entry));
+}
+
 export async function assertSimulatorArchive(archivePath) {
     await access(archivePath, constants.R_OK);
     const details = await stat(archivePath);
@@ -43,7 +47,7 @@ export async function assertSimulatorArchive(archivePath) {
     }
 
     const entries = listing.split(/\r?\n/).filter(Boolean);
-    if (!entries.some((entry) => /(^|\/)\.app\/Info\.plist$/i.test(entry))) {
+    if (!containsSimulatorAppBundle(entries)) {
         throw new Error("Simulator archive must contain an iOS .app bundle with Info.plist.");
     }
     return { archivePath, filename: basename(archivePath), size: details.size };

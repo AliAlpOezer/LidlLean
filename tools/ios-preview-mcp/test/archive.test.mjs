@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { resolveSimulatorArchive } from "../lib/archive.mjs";
+import { containsSimulatorAppBundle, resolveSimulatorArchive } from "../lib/archive.mjs";
 
 const root = resolve("preview-artifacts");
 
@@ -18,6 +18,12 @@ test("rejects a ZIP outside the configured preview-artifacts directory", () => {
 
 test("rejects a non-ZIP archive", () => {
     assert.throws(() => resolveSimulatorArchive(join(root, "LidlLean.ipa"), root), /\.zip/);
+});
+
+test("recognizes the app bundle layout produced by the simulator workflow", () => {
+    assert.equal(containsSimulatorAppBundle(["LidlLean.app/", "LidlLean.app/Info.plist"]), true);
+    assert.equal(containsSimulatorAppBundle(["Payload/LidlLean.app/Info.plist"]), true);
+    assert.equal(containsSimulatorAppBundle(["LidlLean.app/LidlLean"]), false);
 });
 
 test("publishes the complete MCP tool surface without a cloud credential", async () => {
