@@ -99,6 +99,9 @@ actor LidlCatalogClient {
             return LidlOffer(id: product.productID ?? product.title, title: product.title, brand: product.brand, price: price, imageURL: product.image.flatMap(URL.init(string:)), productURL: product.url.flatMap(URL.init(string:)), category: product.wonCategoryPrimary ?? product.categoryPrimary)
         }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
         let pages = response.flyer.pages.compactMap { page in page.image.flatMap(URL.init(string:)).map { LidlFlyerPage(number: page.number, imageURL: $0, altText: page.altText) } }.sorted { $0.number < $1.number }
+        guard !offers.isEmpty, !pages.isEmpty else {
+            throw LidlCatalogError.invalidResponseDetail("decoded flyer \(response.flyer.title): \(response.flyer.products.count) products, \(response.flyer.pages.count) pages, \(offers.count) priced offers, \(pages.count) usable pages")
+        }
         return LidlWeeklyCatalog(title: response.flyer.title, validFrom: flyer.startDate, validUntil: flyer.endDate, flyerURL: flyer.url, offers: offers, pages: pages, fetchedAt: .now)
     }
 
