@@ -36,4 +36,4 @@ LidlLean is a private iPhone nutrition operating system for sustainable fat loss
 - The iPhone 11 simulator proves the complete 414 by 896-point app window and retains a screenshot artifact for visual inspection of the full-bleed canvas.
 - The live Lidl ingestion test decodes the current public German flyer.
 - Planner, momentum, and AI-snapshot tests prove deterministic calculations and safety rules.
-- The build produces both a simulator preview and an unsigned device IPA from the same source revision.
+- The build retains native simulator test evidence and produces an unsigned device IPA from the same source revision.
