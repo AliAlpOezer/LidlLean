@@ -107,7 +107,7 @@ struct LidlShoppingView: View {
                     OfferCard(offer: offer, alreadyAdded: basket.contains(where: { $0.offerID == basketIdentifier(for: offer, day: .now) }), knownFood: foods.first(where: { $0.name.caseInsensitiveCompare(offer.title) == .orderedSame })) { add(offer) }
                 }
                 if visibleOffers.isEmpty, catalog != nil {
-                    ContentUnavailableView("No food offers found", systemImage: "fork.knife", description: Text("Switch off the Food offers filter to browse every listed product."))
+                    ContentUnavailableView("No food promotions in this flyer", systemImage: "fork.knife", description: Text("This week's official Lidl flyer is currently tools and home products. Food offers will appear here as soon as Lidl lists them. Switch off the filter to browse the full flyer."))
                 }
             }.padding(.bottom, 20)
         }.searchable(text: $search, prompt: "Search this week's offers")
