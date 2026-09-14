@@ -129,16 +129,20 @@ actor LidlCatalogClient {
         guard let decodingError = error as? DecodingError else { return error.localizedDescription }
         switch decodingError {
         case .keyNotFound(let key, let context):
-            return "missing \(key.stringValue) at \(context.codingPath.map(\.stringValue).joined(separator: \".\"))"
+            return "missing \(key.stringValue) at \(path(for: context))"
         case .typeMismatch(let type, let context):
-            return "expected \(type) at \(context.codingPath.map(\.stringValue).joined(separator: \".\")): \(context.debugDescription)"
+            return "expected \(type) at \(path(for: context)): \(context.debugDescription)"
         case .valueNotFound(let type, let context):
-            return "missing \(type) at \(context.codingPath.map(\.stringValue).joined(separator: \".\")): \(context.debugDescription)"
+            return "missing \(type) at \(path(for: context)): \(context.debugDescription)"
         case .dataCorrupted(let context):
-            return "invalid data at \(context.codingPath.map(\.stringValue).joined(separator: \".\")): \(context.debugDescription)"
+            return "invalid data at \(path(for: context)): \(context.debugDescription)"
         @unknown default:
             return error.localizedDescription
         }
+    }
+
+    private static func path(for context: DecodingError.Context) -> String {
+        context.codingPath.map(\.stringValue).joined(separator: ".")
     }
 
     private func saveCache(_ catalog: LidlWeeklyCatalog) throws { try JSONEncoder().encode(CachedCatalog(catalog)).write(to: cacheURL, options: .atomic) }
