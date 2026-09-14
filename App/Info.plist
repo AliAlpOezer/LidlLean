@@ -6,7 +6,7 @@
 	<string>LidlLean</string>
 	<key>CFBundleName</key>
 	<string>LidlLean</string>
-	<key>UIRequiresFullScreen</key>
+	<key>UIDesignRequiresCompatibility</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>LidlLean uses the camera to scan food barcodes.</string>
