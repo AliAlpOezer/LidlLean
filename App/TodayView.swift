@@ -6,6 +6,7 @@ struct TodayView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \MealEntry.consumedAt, order: .reverse) private var entries: [MealEntry]
     @Query private var goals: [UserGoal]
+    @Query private var reviews: [DayReview]
     @State private var activity = ActivitySnapshot.unavailable
     @State private var healthError: String?
     @State private var healthImportMessage: String?
@@ -17,6 +18,16 @@ struct TodayView: View {
     private var totals: Nutrients { today.reduce(.zero) { $0 + $1.nutrients } }
     private var goal: UserGoal { goals.first ?? UserGoal() }
     private var caloriesLeft: Double { max(goal.calorieTarget - totals.calories, 0) }
+    private var momentum: MomentumSnapshot {
+        MomentumEngine.snapshot(for: momentumDay(for: .now), history: momentumHistory, proteinTarget: goal.proteinTarget, calendar: .current)
+    }
+    private var momentumHistory: [MomentumDay] {
+        let calendar = Calendar.current
+        return (-13...0).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: .now) else { return nil }
+            return momentumDay(for: date)
+        }
+    }
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
@@ -25,6 +36,7 @@ struct TodayView: View {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     header
                     energyCard
+                    momentumCard
                     quickActions
                     macroGrid
                     healthCard
@@ -150,6 +162,54 @@ struct TodayView: View {
             .buttonStyle(QuietActionStyle())
             .accessibilityLabel("Scan a barcode")
         }
+    }
+
+    private var momentumCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 15) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        SectionEyebrow(title: "Daily momentum")
+                        Text(momentum.completedMissions == 3 ? "Day closed. Great work." : "Build today’s win.")
+                            .font(.title3.bold()).foregroundStyle(AppTheme.ink)
+                    }
+                    Spacer()
+                    VStack(spacing: 1) {
+                        Label("\(momentum.streak)", systemImage: "flame.fill")
+                            .font(.headline.weight(.bold)).foregroundStyle(AppTheme.warning)
+                        Text("day streak").font(.caption2.weight(.bold)).foregroundStyle(AppTheme.muted)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                    .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                HStack(spacing: 9) {
+                    ForEach(momentum.missions) { mission in
+                        VStack(alignment: .leading, spacing: 7) {
+                            Image(systemName: mission.complete ? "checkmark.circle.fill" : mission.symbol)
+                                .font(.headline).foregroundStyle(mission.complete ? AppTheme.success : AppTheme.muted)
+                            Text(mission.title).font(.caption.weight(.bold)).foregroundStyle(AppTheme.ink).lineLimit(2)
+                            ProgressView(value: mission.progress).tint(mission.complete ? AppTheme.success : AppTheme.primary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(11)
+                        .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
+                HStack {
+                    Label("\(momentum.points) / \(MomentumEngine.pointsPerLevel) momentum", systemImage: "sparkles")
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.ink)
+                    Spacer()
+                    Text("Level \(momentum.level)").font(.caption.weight(.bold)).foregroundStyle(AppTheme.success)
+                }
+            }
+        }
+    }
+
+    private func momentumDay(for date: Date) -> MomentumDay {
+        let calendar = Calendar.current
+        let meals = entries.filter { calendar.isDate($0.consumedAt, inSameDayAs: date) }
+        let reviewed = reviews.contains { calendar.isDate($0.day, inSameDayAs: date) }
+        return MomentumDay(date: date, mealCount: meals.count, protein: meals.reduce(0) { $0 + $1.nutrients.protein }, reviewed: reviewed)
     }
 
     private var macroGrid: some View {

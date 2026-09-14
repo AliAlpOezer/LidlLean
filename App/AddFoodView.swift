@@ -23,6 +23,8 @@ struct AddFoodView: View {
 
     @Environment(\.modelContext) private var context
     @Query(sort: \Food.verifiedAt, order: .reverse) private var foods: [Food]
+    @Query(sort: \MealEntry.consumedAt, order: .reverse) private var entries: [MealEntry]
+    @Query private var goals: [UserGoal]
     @State private var name = ""
     @State private var barcode = ""
     @State private var grams = 100.0
@@ -38,6 +40,7 @@ struct AddFoodView: View {
     @State private var lookingUp = false
     @State private var confirmedLabel = false
     @State private var mode: CaptureMode = .scan
+    @State private var celebration: MealCelebration?
     private let catalog = OpenFoodFactsClient()
 
     var body: some View {
@@ -80,6 +83,11 @@ struct AddFoodView: View {
                     showingScanner = false
                     Task { await lookup() }
                 }
+            }
+            .sheet(item: $celebration) { celebration in
+                MealCelebrationView(celebration: celebration)
+                    .presentationDetents([.height(310)])
+                    .presentationDragIndicator(.visible)
             }
         }
     }
@@ -324,6 +332,7 @@ struct AddFoodView: View {
 
     private func save() {
         guard valid && confirmedLabel else { return }
+        let before = currentMomentum
         let nutrients = Nutrients(calories: calories, protein: protein, carbohydrates: carbs, fat: fat)
         let food = Food(name: name.trimmingCharacters(in: .whitespacesAndNewlines), barcode: barcode.isEmpty ? nil : barcode,
                         nutrientsPer100g: nutrients, source: source)
@@ -332,6 +341,10 @@ struct AddFoodView: View {
         context.insert(MealEntry(food: food, grams: grams, kind: kind, consumedAt: consumedAt))
         do {
             try context.save()
+            let meals = entries.filter { Calendar.current.isDate($0.consumedAt, inSameDayAs: consumedAt) }
+            let portion = nutrients.scaled(by: grams / 100)
+            let after = MomentumEngine.snapshot(for: MomentumDay(date: consumedAt, mealCount: meals.count + 1, protein: meals.reduce(0) { $0 + $1.nutrients.protein } + portion.protein, reviewed: false), history: [], proteinTarget: goals.first?.proteinTarget ?? 140, calendar: .current)
+            celebration = MealCelebration(points: max(10, after.points - before.points), calories: scaledCalories, protein: portion.protein)
             message = "Logged \(Int(scaledCalories)) kcal for \(consumedAt.formatted(date: .abbreviated, time: .shortened))."
             name = ""
             barcode = ""
@@ -346,6 +359,40 @@ struct AddFoodView: View {
             context.rollback()
             message = "Could not save meal: \(error.localizedDescription)"
         }
+    }
+
+    private var currentMomentum: MomentumSnapshot {
+        let meals = entries.filter { Calendar.current.isDate($0.consumedAt, inSameDayAs: consumedAt) }
+        return MomentumEngine.snapshot(for: MomentumDay(date: consumedAt, mealCount: meals.count, protein: meals.reduce(0) { $0 + $1.nutrients.protein }, reviewed: false), history: [], proteinTarget: goals.first?.proteinTarget ?? 140, calendar: .current)
+    }
+}
+
+private struct MealCelebration: Identifiable {
+    let id = UUID()
+    let points: Int
+    let calories: Double
+    let protein: Double
+}
+
+private struct MealCelebrationView: View {
+    let celebration: MealCelebration
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 34, weight: .bold))
+                .foregroundStyle(AppTheme.ink)
+                .frame(width: 78, height: 78)
+                .background(AppTheme.lime, in: Circle())
+            Text("Logged. Keep moving.").font(.system(size: 27, weight: .bold, design: .rounded)).foregroundStyle(AppTheme.ink)
+            Text("+\(celebration.points) momentum · \(Int(celebration.calories)) kcal · \(Int(celebration.protein)) g protein")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.muted)
+            Button("Back to your day") { dismiss() }.buttonStyle(PrimaryActionStyle())
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .background(AppTheme.canvas)
     }
 }
 

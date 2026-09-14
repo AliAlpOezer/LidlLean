@@ -100,6 +100,39 @@ The shell depends on the shared visual system. Feature screens depend on the dat
 | Hard-coded iPhone 11 dimensions | It fails on Dynamic Type, landscape, and future iPhones. SwiftUI safe areas and adaptive grids preserve the intended hierarchy. |
 | Copying YAZIO’s surface literally | The useful pattern is fast logging plus an at-a-glance dashboard, not another product’s colors, mascot, or layout. |
 
+## Momentum loop
+
+### Goal
+
+Make the healthy action feel complete and visible without turning calorie restriction into a game. The loop is: log a real meal, see protein progress, intentionally close the day, then return to an understandable weekly record.
+
+### Invariants
+
+- Momentum never rewards eating less, skipping meals, or exceeding a calorie deficit.
+- Scores are derived from the local journal. They cannot be claimed twice, forged by an interface state, or require a network request.
+- A day earns completion from at least one logged meal. Protein pacing and reviewing the journal are additive, explainable missions.
+- A missed day resets a streak without punishment, currency, countdowns, or dark-pattern recovery mechanics.
+- All thresholds use the user's protein target and are shown as progress, not a medical recommendation.
+
+### Components and seams
+
+| Component | Owns | Carrier | Failure behavior |
+| --- | --- | --- | --- |
+| Momentum engine | Deterministic points, mission state, and consecutive-day streak | Immutable `MomentumDay` values derived from SwiftData queries | Empty history yields zero progress, never a fabricated streak |
+| Today mission card | The current day's three actionable missions | Read-only `MomentumSnapshot` | Remains useful before the first meal is logged |
+| Logging celebration | Immediate confirmation that a persisted meal advanced the loop | Pre-save and post-save local evaluation | Save error produces no celebration |
+| Weekly path | Seven-day completion visibility | Same derived snapshot per day | Future days appear neutral rather than incomplete |
+
+The journal remains the source of truth. The engine has no persistence or networking seam, which keeps its results reproducible and prevents reward state from becoming a second, conflicting record.
+
+### Rejected alternatives
+
+| Alternative | Why rejected |
+| --- | --- |
+| Artificial coins, chests, or streak repair purchases | They reward app retention instead of nutrition behavior and create pressure after a missed day. |
+| Rewarding a calorie under-run | It could encourage unsafe restriction and would confuse a calorie budget with a health outcome. |
+| Server-owned streaks | The app is local-first and should work privately offline. |
+
 ## Lidl public-web ingestion subsystem
 
 ### Goal

@@ -50,4 +50,12 @@ expect(portion == 250, "Protein suggestion should be 250 g for a 30 g gap at 12 
 expect(WeeklyPlanner.proteinPortion(proteinGap: 30, caloriesLeft: 100, caloriesPer100g: 200, proteinPer100g: 20) == 50, "Portion must also fit calories")
 expect(WeeklyPlanner.proteinPortion(proteinGap: 0, caloriesLeft: 300, caloriesPer100g: 67, proteinPer100g: 12) == nil, "No protein gap should produce no protein catch-up portion")
 expect(WeeklyPlanner.proteinPortion(proteinGap: 30, caloriesLeft: .nan, caloriesPer100g: 67, proteinPer100g: 12) == nil, "Invalid numbers must not reach recommendations")
+
+let momentumToday = MomentumDay(date: wednesday, mealCount: 2, protein: 105, reviewed: true)
+let momentumYesterday = MomentumDay(date: tuesday, mealCount: 1, protein: 60, reviewed: true)
+let momentum = MomentumEngine.snapshot(for: momentumToday, history: [momentumYesterday, momentumToday], proteinTarget: 140, calendar: calendar)
+expect(momentum.points == 50 && momentum.completedMissions == 3, "Momentum only rewards logging, protein pace, and an intentional review")
+expect(momentum.streak == 2 && momentum.level == 2, "Momentum streaks must be consecutive local meal days")
+let noMealMomentum = MomentumEngine.snapshot(for: MomentumDay(date: wednesday, mealCount: 0, protein: 0, reviewed: false), history: [], proteinTarget: 140, calendar: calendar)
+expect(noMealMomentum.points == 0 && noMealMomentum.streak == 0, "Empty days must not create artificial rewards")
 print("Passed \(checks) planning checks")

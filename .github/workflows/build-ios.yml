@@ -33,7 +33,7 @@ jobs:
           xcodebuild -project LidlLean.xcodeproj -scheme LidlLean -showBuildSettings | grep -q 'CODE_SIGN_ENTITLEMENTS = App/LidlLean.entitlements'
       - name: Verify weekly planning scenarios
         run: |
-          xcrun swiftc Core/WeeklyPlanner.swift Tests/Planner/main.swift -o "$RUNNER_TEMP/planner-tests"
+          xcrun swiftc Core/WeeklyPlanner.swift Core/Momentum.swift Tests/Planner/main.swift -o "$RUNNER_TEMP/planner-tests"
           "$RUNNER_TEMP/planner-tests"
       - name: Verify private AI prompt scenarios
         run: |
