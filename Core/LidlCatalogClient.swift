@@ -106,8 +106,9 @@ actor LidlCatalogClient {
         var request = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 25)
         request.setValue("LidlLean/1.0 personal shopping planner", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await session.data(for: request)
-        guard let status = (response as? HTTPURLResponse)?.statusCode, status == 200 else {
-            let status = (response as? HTTPURLResponse)?.statusCode.map(String.init) ?? "unknown"
+        let statusCode = (response as? HTTPURLResponse)?.statusCode
+        guard statusCode == 200 else {
+            let status = statusCode == nil ? "unknown" : String(statusCode!)
             throw LidlCatalogError.invalidResponseDetail("HTTP \(status)")
         }
         return data
