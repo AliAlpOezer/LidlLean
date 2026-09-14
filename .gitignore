@@ -8,3 +8,6 @@ build/
 *.ipa
 *.p12
 *.mobileprovision
+preview-artifacts/
+tools/ios-preview-mcp/.env
+tools/ios-preview-mcp/node_modules/

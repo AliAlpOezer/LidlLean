@@ -14,6 +14,8 @@ Windows is the development machine. GitHub Actions supplies the temporary macOS/
 
 No Apple certificate, provisioning profile, or Apple password enters GitHub. The unsigned artifact is deliberate: Sideloadly owns the personal signing step.
 
+For a browser-hosted iOS UI preview on Windows, the same workflow also produces `LidlLean-simulator-app`. It is a zipped simulator `.app` for Appetize, not an installable iPhone IPA. The local MCP setup and privacy boundary are in [iOS Preview MCP](tools/ios-preview-mcp/README.md).
+
 HealthKit is an Apple capability. The app target declares `com.apple.developer.healthkit`, and CI verifies that the generated Xcode build uses that entitlement file. The final profile produced while Sideloadly signs the app must also permit HealthKit. If a free Personal Team profile rejects the capability, a paid Apple Developer membership and a development profile with HealthKit enabled may be required.
 
 ## Source layout

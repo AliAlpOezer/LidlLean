@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
@@ -43,6 +43,27 @@ jobs:
         with:
           name: planning-ui-test-results
           path: build/PlanningUITests.xcresult
+          retention-days: 7
+      - name: Build Appetize simulator preview
+        run: |
+          xcodebuild build \
+            -project LidlLean.xcodeproj \
+            -scheme LidlLean \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$PWD/build/SimulatorDerivedData" \
+            CODE_SIGNING_ALLOWED=NO
+          APP_PATH="$PWD/build/SimulatorDerivedData/Build/Products/Debug-iphonesimulator/LidlLean.app"
+          test -d "$APP_PATH"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" build/LidlLean-simulator-app.zip
+          unzip -l build/LidlLean-simulator-app.zip | grep -q 'LidlLean.app/Info.plist'
+      - name: Upload Appetize simulator preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: LidlLean-simulator-app
+          path: build/LidlLean-simulator-app.zip
+          if-no-files-found: error
           retention-days: 7
       - name: Archive unsigned device app
         run: >-
