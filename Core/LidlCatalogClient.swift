@@ -117,17 +117,106 @@ actor LidlCatalogClient {
 }
 
 private struct OfferCatalog: Decodable {
-    let type: String; let events: [SaleEvent]
+    let type: String
+    let events: [SaleEvent]
     enum CodingKeys: String, CodingKey { case type = "@type"; case events = "itemListElement" }
 }
-private struct SaleEvent: Decodable { let name: String; let url: URL; let startDate: Date; let endDate: Date }
-private struct FlyerResponse: Decodable { let success: Bool; let flyer: FlyerPayload }
+
+private struct SaleEvent: Decodable {
+    let name: String
+    let url: URL
+    let startDate: Date
+    let endDate: Date
+
+    enum CodingKeys: String, CodingKey { case name, url, startDate, endDate }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        url = try container.decode(URL.self, forKey: .url)
+        startDate = try container.decodeLidlDate(forKey: .startDate)
+        endDate = try container.decodeLidlDate(forKey: .endDate)
+    }
+}
+
+private struct FlyerResponse: Decodable {
+    let success: Bool
+    let flyer: FlyerPayload
+
+    enum CodingKeys: String, CodingKey { case success, flyer }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decodeFlexibleBool(forKey: .success)
+        flyer = try container.decode(FlyerPayload.self, forKey: .flyer)
+    }
+}
+
 private struct FlyerPayload: Decodable { let title: String; let products: [String: FlyerProduct]; let pages: [FlyerPage] }
 private struct FlyerProduct: Decodable {
     let productID: String?; let title: String; let brand: String?; let price: String?; let image: String?; let url: String?; let wonCategoryPrimary: String?; let categoryPrimary: String?
     enum CodingKeys: String, CodingKey { case productID = "productId"; case title; case brand; case price; case image; case url; case wonCategoryPrimary; case categoryPrimary }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        productID = try container.decodeFlexibleStringIfPresent(forKey: .productID)
+        title = try container.decode(String.self, forKey: .title)
+        brand = try container.decodeFlexibleStringIfPresent(forKey: .brand)
+        price = try container.decodeFlexibleStringIfPresent(forKey: .price)
+        image = try container.decodeFlexibleStringIfPresent(forKey: .image)
+        url = try container.decodeFlexibleStringIfPresent(forKey: .url)
+        wonCategoryPrimary = try container.decodeFlexibleStringIfPresent(forKey: .wonCategoryPrimary)
+        categoryPrimary = try container.decodeFlexibleStringIfPresent(forKey: .categoryPrimary)
+    }
 }
-private struct FlyerPage: Decodable { let number: Int; let image: String?; let altText: String? }
+private struct FlyerPage: Decodable {
+    let number: Int
+    let image: String?
+    let altText: String?
+
+    enum CodingKeys: String, CodingKey { case number, image, altText }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        number = try container.decodeFlexibleInt(forKey: .number)
+        image = try container.decodeFlexibleStringIfPresent(forKey: .image)
+        altText = try container.decodeFlexibleStringIfPresent(forKey: .altText)
+    }
+}
+
+private extension KeyedDecodingContainer {
+    func decodeFlexibleStringIfPresent(forKey key: Key) throws -> String? {
+        guard contains(key) else { return nil }
+        if try decodeNil(forKey: key) { return nil }
+        if let value = try? decode(String.self, forKey: key) { return value }
+        if let value = try? decode(Double.self, forKey: key) { return String(value) }
+        return nil
+    }
+
+    func decodeFlexibleInt(forKey key: Key) throws -> Int {
+        if let value = try? decode(Int.self, forKey: key) { return value }
+        if let value = try decode(String.self, forKey: key), let integer = Int(value) { return integer }
+        throw DecodingError.dataCorruptedError(forKey: key, in: self, debugDescription: "Expected an integer or numeric string.")
+    }
+
+    func decodeFlexibleBool(forKey key: Key) throws -> Bool {
+        if let value = try? decode(Bool.self, forKey: key) { return value }
+        let value = try decode(String.self, forKey: key).lowercased()
+        if ["true", "1", "yes"].contains(value) { return true }
+        if ["false", "0", "no"].contains(value) { return false }
+        throw DecodingError.dataCorruptedError(forKey: key, in: self, debugDescription: "Expected a boolean value.")
+    }
+
+    func decodeLidlDate(forKey key: Key) throws -> Date {
+        let value = try decode(String.self, forKey: key)
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: value) { return date }
+        formatter.formatOptions = [.withInternetDateTime]
+        if let date = formatter.date(from: value) { return date }
+        throw DecodingError.dataCorruptedError(forKey: key, in: self, debugDescription: "Expected an ISO-8601 date.")
+    }
+}
 
 private struct CachedCatalog: Codable {
     let title: String; let validFrom: Date; let validUntil: Date; let flyerURL: URL; let offers: [CachedOffer]; let pages: [CachedPage]; let fetchedAt: Date

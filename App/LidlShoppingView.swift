@@ -28,13 +28,8 @@ struct LidlShoppingView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("Shopping section", selection: $selection) {
-                    Text("Offers").tag(0)
-                    Text("Flyer").tag(1)
-                    Text("My basket").tag(2)
-                }
-                .pickerStyle(.segmented)
-                .padding()
+                shopHeader
+                sectionSwitcher
                 Group {
                     if selection == 0 { offersView }
                     else if selection == 1 { flyerView }
@@ -42,10 +37,60 @@ struct LidlShoppingView: View {
                 }
             }
             .background(AppTheme.canvas.ignoresSafeArea())
-            .navigationTitle("Lidl week")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { Task { await load(force: true) } } label: { Image(systemName: "arrow.clockwise") }.disabled(refreshing) } }
+            .navigationBarHidden(true)
             .task { await load() }
         }
+    }
+
+    private var shopHeader: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("LIDL WEEK").font(.caption.weight(.bold)).tracking(1.5).foregroundStyle(AppTheme.primary)
+                Text("Shop smarter").font(.system(size: 32, weight: .bold, design: .rounded)).foregroundStyle(AppTheme.ink)
+                Text(catalog.map { "\($0.offers.count) live offers · valid through \($0.validUntil.formatted(.dateTime.month(.abbreviated).day()))" } ?? "Your protein-first basket, in one place")
+                    .font(.subheadline.weight(.medium)).foregroundStyle(AppTheme.muted).lineLimit(2)
+            }
+            Spacer(minLength: 8)
+            Button { Task { await load(force: true) } } label: {
+                Image(systemName: refreshing ? "arrow.triangle.2.circlepath" : "arrow.clockwise")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AppTheme.ink)
+                    .frame(width: 44, height: 44)
+                    .background(AppTheme.lime, in: Circle())
+            }
+            .disabled(refreshing)
+            .accessibilityLabel("Refresh Lidl offers")
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 14)
+    }
+
+    private var sectionSwitcher: some View {
+        HStack(spacing: 4) {
+            shopSegment("Offers", systemImage: "tag.fill", index: 0)
+            shopSegment("Flyer", systemImage: "doc.text.image", index: 1)
+            shopSegment("Basket", systemImage: "basket.fill", index: 2, badge: basket.count)
+        }
+        .padding(4)
+        .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+
+    private func shopSegment(_ title: String, systemImage: String, index: Int, badge: Int? = nil) -> some View {
+        Button { withAnimation(.easeOut(duration: 0.2)) { selection = index } } label: {
+            HStack(spacing: 5) {
+                Image(systemName: systemImage)
+                Text(title)
+                if let badge, badge > 0 { Text("\(badge)").font(.caption2.weight(.bold)).padding(.horizontal, 5).padding(.vertical, 2).background(AppTheme.lime, in: Capsule()) }
+            }
+            .font(.caption.weight(.bold))
+            .foregroundStyle(selection == index ? AppTheme.ink : AppTheme.muted)
+            .frame(maxWidth: .infinity, minHeight: 38)
+            .background(selection == index ? AppTheme.surface : .clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var offersView: some View {
@@ -53,11 +98,14 @@ struct LidlShoppingView: View {
             LazyVStack(spacing: 14) {
                 catalogHeader
                 HStack {
-                    Toggle("Food only", isOn: $foodOnly).tint(AppTheme.lime)
-                    Text("\(visibleOffers.count) offers").font(.caption).foregroundStyle(AppTheme.muted)
+                    Label("Food only", systemImage: "fork.knife")
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.ink)
+                    Spacer()
+                    Toggle("Food only", isOn: $foodOnly).labelsHidden().tint(AppTheme.success)
+                    Text("\(visibleOffers.count)").font(.caption.weight(.bold)).foregroundStyle(AppTheme.primary)
                 }.padding(.horizontal)
                 ForEach(visibleOffers) { offer in
-                    OfferCard(offer: offer, alreadyAdded: basket.contains(where: { $0.offerID == offer.id })) { add(offer) }
+                    OfferCard(offer: offer, alreadyAdded: basket.contains(where: { $0.offerID == offer.id }), knownFood: foods.first(where: { $0.name.caseInsensitiveCompare(offer.title) == .orderedSame })) { add(offer) }
                 }
                 if visibleOffers.isEmpty, catalog != nil {
                     ContentUnavailableView("No matching structured offers", systemImage: "cart", description: Text("Switch off Food only to browse every product, or view the complete flyer pages."))
@@ -70,18 +118,44 @@ struct LidlShoppingView: View {
         if let catalog {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: 7) {
-                    SectionEyebrow(title: "Live Lidl catalog")
+                    HStack {
+                        Label(catalog.validUntil >= Date.now ? "Live Lidl offers" : "Expired Lidl offers", systemImage: catalog.validUntil >= Date.now ? "circle.fill" : "exclamationmark.triangle.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(catalog.validUntil >= .now ? AppTheme.success : AppTheme.warning)
+                        Spacer()
+                        Text(catalog.fetchedAt.formatted(date: .omitted, time: .shortened))
+                            .font(.caption2.weight(.medium)).foregroundStyle(AppTheme.muted)
+                    }
                     Text(catalog.title).font(.title2.bold()).foregroundStyle(AppTheme.ink)
-                    Text("\(catalog.offers.count) structured offers · \(catalog.pages.count) flyer pages").font(.subheadline).foregroundStyle(AppTheme.muted)
-                    Text("Fetched \(catalog.fetchedAt.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(AppTheme.muted)
-                    if catalog.validUntil < Date.now { Text("Expired flyer. Refresh before relying on these prices.").foregroundStyle(.orange) }
-                    if Date.now.timeIntervalSince(catalog.fetchedAt) > 6 * 60 * 60 { Text("Showing saved data; live refresh was unavailable.").foregroundStyle(.orange) }
+                    Text("\(catalog.offers.count) offers · \(catalog.pages.count) full-page scans")
+                        .font(.subheadline).foregroundStyle(AppTheme.muted)
+                    if catalog.validUntil < Date.now {
+                        Text("This flyer has expired. Refresh before using prices.").font(.caption).foregroundStyle(AppTheme.warning)
+                    }
                 }
             }.padding(.horizontal)
         } else if let errorMessage {
-            ContentUnavailableView("Lidl data unavailable", systemImage: "wifi.exclamationmark", description: Text(errorMessage))
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Lidl connection failed", systemImage: "wifi.exclamationmark")
+                        .font(.headline.weight(.bold)).foregroundStyle(AppTheme.warning)
+                    Text(errorMessage).font(.subheadline).foregroundStyle(AppTheme.muted)
+                    HStack(spacing: 12) {
+                        Button("Try again", systemImage: "arrow.clockwise") { Task { await load(force: true) } }
+                            .buttonStyle(.borderedProminent).tint(AppTheme.primary)
+                        Link("Open Lidl.de", destination: LidlCatalogClient.officialProspectURL)
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(AppTheme.primary)
+                    }
+                }
+            }
+            .padding(.horizontal)
         } else {
-            ProgressView("Fetching Lidl's current catalog...").tint(AppTheme.lime).padding(40)
+            SurfaceCard {
+                HStack(spacing: 12) {
+                    ProgressView().tint(AppTheme.primary)
+                    Text("Fetching this week's Lidl offers…").font(.subheadline.weight(.medium)).foregroundStyle(AppTheme.muted)
+                }
+            }.padding(.horizontal)
         }
     }
 
@@ -164,26 +238,44 @@ struct LidlShoppingView: View {
 private struct OfferCard: View {
     let offer: LidlOffer
     let alreadyAdded: Bool
+    let knownFood: Food?
     let add: () -> Void
     var body: some View {
-        SurfaceCard {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 14) {
-                    AsyncImage(url: offer.imageURL) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "photo").foregroundStyle(AppTheme.muted) }
-                        .frame(width: 84, height: 84).background(.white, in: RoundedRectangle(cornerRadius: 14))
-                    VStack(alignment: .leading, spacing: 6) {
-                        if let brand = offer.brand { Text(brand.uppercased()).font(.caption2.bold()).foregroundStyle(AppTheme.muted) }
-                        Text(offer.title).font(.headline).foregroundStyle(AppTheme.ink).lineLimit(3)
-                        Text(offer.price.formatted(.currency(code: "EUR"))).font(.title3.bold()).foregroundStyle(AppTheme.primary)
-                    }
+        HStack(spacing: 14) {
+            AsyncImage(url: offer.imageURL) { image in
+                image.resizable().scaledToFit()
+            } placeholder: {
+                ZStack {
+                    AppTheme.elevated
+                    Image(systemName: "cart.fill").foregroundStyle(AppTheme.primary.opacity(0.55))
                 }
-                Button(action: add) {
-                    Label(alreadyAdded ? "Added to basket" : "Add to basket", systemImage: alreadyAdded ? "checkmark" : "plus")
-                }
-                .buttonStyle(PrimaryActionStyle())
-                .disabled(alreadyAdded)
             }
-        }.padding(.horizontal)
+            .frame(width: 86, height: 86)
+            .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            VStack(alignment: .leading, spacing: 6) {
+                if let brand = offer.brand { Text(brand.uppercased()).font(.caption2.weight(.bold)).tracking(0.8).foregroundStyle(AppTheme.muted) }
+                Text(offer.title).font(.subheadline.weight(.bold)).foregroundStyle(AppTheme.ink).lineLimit(3)
+                HStack(alignment: .lastTextBaseline, spacing: 8) {
+                    Text(offer.price.formatted(.currency(code: "EUR"))).font(.title3.weight(.bold)).foregroundStyle(AppTheme.primary)
+                    if let food = knownFood { Text("\(Int(food.nutrientsPer100g.protein))g protein/100g").font(.caption).foregroundStyle(AppTheme.success) }
+                }
+            }
+            Spacer(minLength: 2)
+            Button(action: add) {
+                Image(systemName: alreadyAdded ? "checkmark" : "plus")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(alreadyAdded ? AppTheme.success : AppTheme.ink)
+                    .frame(width: 42, height: 42)
+                    .background(alreadyAdded ? AppTheme.success.opacity(0.13) : AppTheme.lime, in: Circle())
+            }
+            .disabled(alreadyAdded)
+            .accessibilityLabel(alreadyAdded ? "Added to basket" : "Add \(offer.title) to basket")
+        }
+        .padding(14)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(AppTheme.ink.opacity(0.055)) }
+        .shadow(color: AppTheme.ink.opacity(0.045), radius: 12, y: 6)
+        .padding(.horizontal, 16)
     }
 }
 

@@ -39,6 +39,10 @@ jobs:
         run: |
           xcrun swiftc Core/AICoachClient.swift Tests/AICoach/main.swift -o "$RUNNER_TEMP/ai-coach-tests"
           "$RUNNER_TEMP/ai-coach-tests"
+      - name: Verify live Lidl catalog ingestion
+        run: |
+          xcrun swiftc Core/LidlCatalogClient.swift Tests/LidlCatalog/main.swift -o "$RUNNER_TEMP/lidl-catalog-tests"
+          "$RUNNER_TEMP/lidl-catalog-tests"
       - name: Test goal setup on an iPhone simulator
         run: |
           RUNTIME=$(xcrun simctl list runtimes available -j | python3 -c 'import sys,json; r=json.load(sys.stdin)["runtimes"]; print([x["identifier"] for x in r if x["platform"] == "iOS"][-1])')
