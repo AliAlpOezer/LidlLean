@@ -8,7 +8,8 @@ struct RootView: View {
             LidlShoppingView().tabItem { Label("Shop", systemImage: "basket.fill") }
             WeeklyCoachView().tabItem { Label("Plan", systemImage: "chart.line.uptrend.xyaxis") }
         }
-        .tint(AppTheme.primary)
+        .modifier(AppTabBarStyle())
+        .background(AppTheme.canvas.ignoresSafeArea())
         .preferredColorScheme(.light)
     }
 }

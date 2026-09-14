@@ -40,44 +40,66 @@ struct TodayView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.primary)
-            Text("Today")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("TODAY")
+                    .font(.caption.weight(.bold))
+                    .tracking(1.4)
+                    .foregroundStyle(AppTheme.primary)
+                Text("Your daily cockpit")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppTheme.ink)
+                Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(AppTheme.muted)
+            }
+            Spacer(minLength: 12)
+            Image(systemName: "leaf.fill")
+                .font(.title2.weight(.bold))
                 .foregroundStyle(AppTheme.ink)
-            Text("Eat with intent. Keep protein protected.")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.muted)
+                .frame(width: 48, height: 48)
+                .background(AppTheme.lime, in: Circle())
+                .overlay { Circle().stroke(AppTheme.ink.opacity(0.08), lineWidth: 1) }
         }
-        .padding(.top, 18)
+        .padding(.top, 14)
     }
 
     private var energyCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text("ENERGY BUDGET").font(.caption.weight(.bold)).tracking(1.1)
-                Spacer()
-                Text("\(Int(caloriesLeft)) left").font(.subheadline.weight(.bold))
+        HStack(spacing: 18) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("ENERGY BUDGET").font(.caption.weight(.bold)).tracking(1.1)
+                    Spacer()
+                    Text("\(Int(caloriesLeft)) left").font(.subheadline.weight(.bold))
+                }
+                .foregroundStyle(.white.opacity(0.78))
+                HStack(alignment: .lastTextBaseline, spacing: 7) {
+                    Text("\(Int(totals.calories))").font(.system(size: 45, weight: .bold, design: .rounded))
+                    Text("kcal eaten").font(.headline).foregroundStyle(.white.opacity(0.68))
+                }
+                .foregroundStyle(.white)
+                ProgressView(value: min(totals.calories / max(goal.calorieTarget, 1), 1))
+                    .tint(AppTheme.lime).scaleEffect(x: 1, y: 1.7, anchor: .center)
+                Text("Daily target \(Int(goal.calorieTarget)) kcal")
+                    .font(.footnote.weight(.medium)).foregroundStyle(.white.opacity(0.68))
             }
-            .foregroundStyle(.white.opacity(0.82))
-            HStack(alignment: .lastTextBaseline, spacing: 7) {
-                Text("\(Int(totals.calories))").font(.system(size: 52, weight: .bold, design: .rounded))
-                Text("kcal eaten").font(.headline).foregroundStyle(.white.opacity(0.72))
+            Spacer(minLength: 0)
+            ZStack {
+                Circle().stroke(.white.opacity(0.14), lineWidth: 9)
+                Circle()
+                    .trim(from: 0, to: min(totals.calories / max(goal.calorieTarget, 1), 1))
+                    .stroke(AppTheme.lime, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Image(systemName: "flame.fill").font(.title2).foregroundStyle(AppTheme.lime)
             }
-            .foregroundStyle(.white)
-            ProgressView(value: min(totals.calories / max(goal.calorieTarget, 1), 1))
-                .tint(.white).scaleEffect(x: 1, y: 1.6, anchor: .center)
-            Text("Daily target \(Int(goal.calorieTarget)) kcal")
-                .font(.footnote.weight(.medium)).foregroundStyle(.white.opacity(0.72))
+            .frame(width: 72, height: 72)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            LinearGradient(colors: [AppTheme.ink, Color(red: 0.08, green: 0.23, blue: 0.50)],
+            LinearGradient(colors: [AppTheme.hero, AppTheme.primary.opacity(0.92)],
                            startPoint: .topLeading, endPoint: .bottomTrailing),
-            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+            in: RoundedRectangle(cornerRadius: 28, style: .continuous)
         )
         .shadow(color: AppTheme.ink.opacity(0.18), radius: 18, y: 9)
     }
@@ -107,7 +129,7 @@ struct TodayView: View {
                     Image(systemName: "heart.fill")
                         .foregroundStyle(.white)
                         .frame(width: 40, height: 40)
-                        .background(Color.red, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(AppTheme.health, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
                     HealthMetric(label: "Steps", value: activity.steps.map { "\(Int($0))" } ?? "Not shared")
@@ -117,7 +139,12 @@ struct TodayView: View {
                     HealthMetric(label: "Distance", value: activity.walkingDistance.map { String(format: "%.1f km", $0) } ?? "Not shared")
                     HealthMetric(label: "Exercise", value: activity.exerciseMinutes.map { "\(Int($0)) min" } ?? "Not shared")
                 }
-                if let healthError { Text(healthError).font(.footnote).foregroundStyle(.red) }
+                if let healthError {
+                    Label(healthError, systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(AppTheme.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Button("Connect or refresh Apple Health", systemImage: "heart.text.square") {
                     Task { await connectHealth() }
                 }
@@ -163,7 +190,7 @@ struct TodayView: View {
 
     private func connectHealth() async {
         do { try await health.requestAccess(); activity = await health.todaySnapshot(); healthError = nil }
-        catch { healthError = error.localizedDescription }
+        catch { healthError = HealthKitClient.userFacingError(error) }
     }
 
     private func delete(_ entry: MealEntry) {

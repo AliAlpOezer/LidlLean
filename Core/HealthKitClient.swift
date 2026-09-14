@@ -13,6 +13,17 @@ struct ActivitySnapshot: Equatable {
 
 actor HealthKitClient {
     private let store = HKHealthStore()
+
+    nonisolated static func userFacingError(_ error: Error) -> String {
+        let message = error.localizedDescription.lowercased()
+        if message.contains("com.apple.developer.healthkit") || message.contains("missing entitlement") {
+            return "This build was signed without the HealthKit capability. Add HealthKit to your App ID, regenerate the provisioning profile, and reinstall the signed build."
+        }
+        if let healthError = error as? HKError, healthError.code == .errorAuthorizationDenied {
+            return "Apple Health access was denied. Open Settings > Health > Data Access & Devices > LidlLean and enable the categories you want to share."
+        }
+        return error.localizedDescription
+    }
     func energyHistory(from start: Date, to end: Date, calendar: Calendar) async throws -> [Date: (resting: Double?, active: Double?)] {
         guard HKHealthStore.isHealthDataAvailable() else { return [:] }
         async let resting = dailyEnergy(.basalEnergyBurned, from: start, to: end, calendar: calendar)

@@ -16,7 +16,7 @@ No Apple certificate, provisioning profile, or Apple password enters GitHub. The
 
 For a browser-hosted iOS UI preview on Windows, the same workflow also produces `LidlLean-simulator-app`. It is a zipped simulator `.app` for Appetize, not an installable iPhone IPA. The local MCP setup and privacy boundary are in [iOS Preview MCP](tools/ios-preview-mcp/README.md).
 
-HealthKit is an Apple capability. The app target declares `com.apple.developer.healthkit`, and CI verifies that the generated Xcode build uses that entitlement file. The final profile produced while Sideloadly signs the app must also permit HealthKit. If a free Personal Team profile rejects the capability, a paid Apple Developer membership and a development profile with HealthKit enabled may be required.
+HealthKit is an Apple capability. The app target declares `com.apple.developer.healthkit`, and CI verifies that the generated Xcode build uses that entitlement file. The final profile produced while Sideloadly signs the app is the authority: it must also contain HealthKit. A free Personal Team profile may omit the capability, which produces the exact “missing com.apple.developer.healthkit entitlement” error on the phone. Follow the [HealthKit signing guide](docs/healthkit-signing.md) to use an explicit App ID and regenerated profile from an Apple Developer Program team.
 
 ## Source layout
 

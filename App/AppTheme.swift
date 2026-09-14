@@ -1,16 +1,18 @@
 import SwiftUI
 
 enum AppTheme {
-    static let canvas = Color(red: 0.956, green: 0.965, blue: 0.976)
+    static let canvas = Color(red: 0.965, green: 0.969, blue: 0.957)
     static let surface = Color.white
-    static let elevated = Color(red: 0.922, green: 0.941, blue: 0.969)
-    static let ink = Color(red: 0.055, green: 0.102, blue: 0.184)
-    static let muted = Color(red: 0.36, green: 0.42, blue: 0.51)
-    static let primary = Color(red: 0.08, green: 0.31, blue: 0.84)
-    static let success = Color(red: 0.02, green: 0.57, blue: 0.45)
-    static let warning = Color(red: 0.93, green: 0.39, blue: 0.16)
-    static let lime = primary
+    static let elevated = Color(red: 0.902, green: 0.929, blue: 0.906)
+    static let ink = Color(red: 0.035, green: 0.071, blue: 0.118)
+    static let muted = Color(red: 0.36, green: 0.41, blue: 0.46)
+    static let primary = Color(red: 0.075, green: 0.255, blue: 0.62)
+    static let success = Color(red: 0.055, green: 0.49, blue: 0.34)
+    static let warning = Color(red: 0.89, green: 0.37, blue: 0.12)
+    static let lime = Color(red: 0.72, green: 0.91, blue: 0.31)
     static let orange = warning
+    static let hero = Color(red: 0.035, green: 0.09, blue: 0.16)
+    static let health = Color(red: 0.87, green: 0.20, blue: 0.25)
 }
 
 struct SurfaceCard<Content: View>: View {
@@ -40,5 +42,15 @@ struct PrimaryActionStyle: ButtonStyle {
             .foregroundStyle(.white)
             .background(configuration.isPressed ? AppTheme.primary.opacity(0.78) : AppTheme.primary,
                         in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+struct AppTabBarStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .toolbarBackground(AppTheme.surface, for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
+            .toolbarColorScheme(.light, for: .tabBar)
+            .tint(AppTheme.primary)
     }
 }

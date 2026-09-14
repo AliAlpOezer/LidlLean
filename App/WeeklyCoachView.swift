@@ -148,7 +148,7 @@ struct WeeklyCoachView: View {
                 Button("Connect or refresh Apple Health") {
                     Task {
                         do { try await health.requestAccess(); await refresh() }
-                        catch { errorMessage = error.localizedDescription }
+                        catch { errorMessage = HealthKitClient.userFacingError(error) }
                     }
                 }.disabled(loading)
             }
@@ -281,9 +281,9 @@ struct WeeklyCoachView: View {
         now = .now
         let start = calendar.date(byAdding: .day, value: -13, to: calendar.startOfDay(for: now))!
         do { energy = try await health.energyHistory(from: start, to: now, calendar: calendar); errorMessage = nil }
-        catch { energy = [:]; errorMessage = "Health history could not be read: \(error.localizedDescription)" }
+        catch { energy = [:]; errorMessage = "Health history could not be read: \(HealthKitClient.userFacingError(error))" }
         do { weights = try await health.weightHistory(from: start, to: now, calendar: calendar) }
-        catch { weights = [:]; errorMessage = "Weight history could not be read: \(error.localizedDescription)" }
+        catch { weights = [:]; errorMessage = "Weight history could not be read: \(HealthKitClient.userFacingError(error))" }
         do { catalog = try await lidl.weeklyCatalog(); offersMessage = nil }
         catch { catalog = nil; offersMessage = "Lidl prices could not be refreshed. Saved-food suggestions are available." }
     }
