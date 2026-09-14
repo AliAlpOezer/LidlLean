@@ -190,7 +190,25 @@ private struct FlyerResponse: Decodable {
     }
 }
 
-private struct FlyerPayload: Decodable { let title: String; let products: [FlyerProduct]; let pages: [FlyerPage] }
+private struct FlyerPayload: Decodable {
+    let title: String
+    let products: [FlyerProduct]
+    let pages: [FlyerPage]
+
+    enum CodingKeys: String, CodingKey { case title, products, pages }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decode(String.self, forKey: .title)
+        if let array = try? container.decode([FlyerProduct].self, forKey: .products) {
+            products = array
+        } else {
+            let dictionary = try container.decode([String: FlyerProduct].self, forKey: .products)
+            products = Array(dictionary.values)
+        }
+        pages = try container.decode([FlyerPage].self, forKey: .pages)
+    }
+}
 private struct FlyerProduct: Decodable {
     let productID: String?; let title: String; let brand: String?; let price: String?; let image: String?; let url: String?; let wonCategoryPrimary: String?; let categoryPrimary: String?
     enum CodingKeys: String, CodingKey { case productID = "productId"; case title; case brand; case price; case image; case url; case wonCategoryPrimary; case categoryPrimary }
