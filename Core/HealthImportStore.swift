@@ -102,7 +102,9 @@ actor HealthImportStore {
         guard let stream = InputStream(url: url) else { throw HealthImportError.fileUnreadable }
         stream.open()
         defer { stream.close() }
-        guard parser.parse(stream), parser.error == nil else {
+        let xmlParser = XMLParser(stream: stream)
+        xmlParser.delegate = parser
+        guard xmlParser.parse(), parser.error == nil else {
             throw HealthImportError.invalidXML(parser.error?.localizedDescription ?? "The XML could not be read.")
         }
 
@@ -116,7 +118,8 @@ actor HealthImportStore {
             guard seen.insert(identity).inserted else { continue }
             let key = dayKey(for: record.startDate)
             guard var day = activities[key] else {
-                activities[key] = try apply(record, to: .empty, weights: &weights, bodyFat: &bodyFat, key: key)
+                let parsed = try apply(record, to: .empty, weights: &weights, bodyFat: &bodyFat, key: key)
+                activities[key] = parsed
                 continue
             }
             day = try apply(record, to: day, weights: &weights, bodyFat: &bodyFat, key: key)
