@@ -20,11 +20,11 @@ enum TrainingProgram {
         let day = calendar.dateComponents([.day], from: calendar.startOfDay(for: startDate), to: calendar.startOfDay(for: date)).day ?? 0
         guard (0..<28).contains(day) else { return nil }
         switch day % 7 {
-        case 0: push
-        case 1: pull
-        case 3: skill
-        case 4: fullBody
-        default: nil
+        case 0: return push
+        case 1: return pull
+        case 3: return skill
+        case 4: return fullBody
+        default: return nil
         }
     }
 
