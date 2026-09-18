@@ -1,6 +1,9 @@
 import SwiftUI
+import UIKit
 
 struct RootView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var now = Date.now
     @State private var healthSyncMessage: String?
     @State private var selection = AppTab.today
     @State private var visited: Set<AppTab> = [.today]
@@ -19,8 +22,19 @@ struct RootView: View {
             }
         }
         .onChange(of: selection) { _, tab in visited.insert(tab) }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { now = .now } }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in now = .now }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             AppTabBar(selection: $selection)
+        }
+        .overlay(alignment: .top) {
+            GeometryReader { geometry in
+                AppTheme.canvas
+                    .frame(height: geometry.safeAreaInsets.top)
+                    .offset(y: -geometry.safeAreaInsets.top)
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
         .preferredColorScheme(.light)
         .onOpenURL { url in
@@ -45,12 +59,12 @@ struct RootView: View {
     @ViewBuilder private func page(for tab: AppTab) -> some View {
         switch tab {
         case .today:
-            TodayView(openLog: { selection = .log }, openTrain: { selection = .train },
+            TodayView(now: now, openLog: { selection = .log }, openTrain: { selection = .train },
                       openShop: { selection = .shop }, openPlan: { selection = .plan })
         case .log: AddFoodView()
         case .shop: LidlShoppingView()
         case .plan: WeeklyCoachView()
-        case .train: TrainingView()
+        case .train: TrainingView(now: now)
         }
     }
 }

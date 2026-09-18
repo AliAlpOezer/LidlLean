@@ -16,21 +16,22 @@ struct TodayView: View {
     @State private var healthImportMessage: String?
     @State private var importingHealthXML = false
     private let health = HealthKitClient()
+    let now: Date
     let openLog: () -> Void
     let openTrain: () -> Void
     let openShop: () -> Void
     let openPlan: () -> Void
 
-    private var today: [MealEntry] { entries.filter { Calendar.current.isDateInToday($0.consumedAt) } }
+    private var today: [MealEntry] { entries.filter { Calendar.current.isDate($0.consumedAt, inSameDayAs: now) } }
     private var totals: Nutrients { today.reduce(.zero) { $0 + $1.nutrients } }
     private var goal: UserGoal { goals.first ?? UserGoal() }
     private var momentum: MomentumSnapshot {
-        MomentumEngine.snapshot(for: momentumDay(for: .now), history: momentumHistory, proteinTarget: goal.proteinTarget, calendar: .current)
+        MomentumEngine.snapshot(for: momentumDay(for: now), history: momentumHistory, proteinTarget: goal.proteinTarget, calendar: .current)
     }
     private var momentumHistory: [MomentumDay] {
         let calendar = Calendar.current
         return (-13...0).compactMap { offset in
-            guard let date = calendar.date(byAdding: .day, value: offset, to: .now) else { return nil }
+            guard let date = calendar.date(byAdding: .day, value: offset, to: now) else { return nil }
             return momentumDay(for: date)
         }
     }
@@ -185,8 +186,8 @@ struct TodayView: View {
 
     private var trainingCard: some View {
         let start = Date(timeIntervalSince1970: startTimestamp)
-        let session = startTimestamp > 0 ? TrainingProgram.session(for: .now, startDate: start) : nil
-        let dayID = TrainingProgram.dayID(for: .now, startDate: start)
+        let session = startTimestamp > 0 ? TrainingProgram.session(for: now, startDate: start) : nil
+        let dayID = TrainingProgram.dayID(for: now, startDate: start)
         let completed = startTimestamp > 0 && workouts.contains { $0.programDayID == dayID }
         return Button(action: openTrain) {
             HStack(spacing: 14) {

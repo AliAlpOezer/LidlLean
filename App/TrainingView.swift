@@ -2,6 +2,7 @@ import SwiftData
 import SwiftUI
 
 struct TrainingView: View {
+    let now: Date
     @Environment(\.modelContext) private var context
     @Query private var records: [WorkoutRecord]
     @AppStorage("training.programStart") private var startTimestamp = 0.0
@@ -15,8 +16,8 @@ struct TrainingView: View {
 
     private var calendar: Calendar { .current }
     private var startDate: Date? { startTimestamp > 0 ? Date(timeIntervalSince1970: startTimestamp) : nil }
-    private var session: TrainingSession? { startDate.flatMap { TrainingProgram.session(for: .now, startDate: $0) } }
-    private var dayID: String? { startDate.map { TrainingProgram.dayID(for: .now, startDate: $0) } }
+    private var session: TrainingSession? { startDate.flatMap { TrainingProgram.session(for: now, startDate: $0) } }
+    private var dayID: String? { startDate.map { TrainingProgram.dayID(for: now, startDate: $0) } }
     private var completed: Bool { dayID.map { id in records.contains { $0.programDayID == id } } ?? false }
 
     var body: some View {
@@ -111,7 +112,7 @@ struct TrainingView: View {
 
         var id: Date { date }
         var shortTitle: String {
-            guard inProgram else { return "Outside" }
+            guard inProgram else { return "·" }
             guard let session else { return "Rest" }
             return session.title.split(separator: " ").first.map(String.init) ?? "Session"
         }
@@ -122,9 +123,9 @@ struct TrainingView: View {
     }
 
     private var currentWeek: [WeekScheduleItem] {
-        guard let interval = calendar.dateInterval(of: .weekOfYear, for: .now) else { return [] }
+        let weekStart = WeeklyPlanner.weekStart(containing: now, calendar: calendar)
         return (0..<7).compactMap { offset in
-            guard let date = calendar.date(byAdding: .day, value: offset, to: interval.start) else { return nil }
+            guard let date = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return nil }
             guard let startDate else {
                 return WeekScheduleItem(date: date, session: nil, dayID: nil, isCompleted: false,
                                         isToday: calendar.isDateInToday(date), inProgram: false)
