@@ -255,3 +255,9 @@ UI depends on pure nutrition values and the existing journals. No new server or 
 Verification: native iPhone simulator interactions, legacy nutrient decoding and coverage scenarios, and an unsigned device build. Windows cannot execute SwiftUI or SwiftData; hosted macOS remains the native verification environment.
 
 Nutrient units follow the [Open Food Facts nutrition schema](https://openfoodfacts.github.io/documentation/docs/Product-Opener/schemas/schemas/product_nutrition/), checked 2026-09-18: normalized `_100g` mineral values are grams, irrespective of contributor `_unit` fields. The adapter converts calcium, iron and potassium to milligrams. Fibre and salt remain grams. Optional label values are not sent to the AI coach.
+
+### Verified constraints
+
+On 2026-09-18, [native build 35332522414](https://github.com/AliAlpOezer/LidlLean/actions/runs/35332522414) verified source revision `9ebf2d8`: fourteen nutrient checks, a separate-process migration from the preceding persisted schema, five iPhone 11 UI journeys, twenty-three planning checks, AI privacy checks, live Lidl ingestion and an unsigned device archive. The migration fixture proves that existing targets and macro snapshots survive, old optional nutrients remain unknown, and editing a food does not rewrite its prior meal snapshot. This is simulator and hosted-macOS evidence, not physical-phone HealthKit validation.
+
+The full-bleed screenshot check samples the upper canvas gutters because center pixels can legitimately contain dark heading text. UI tests must scroll targets above the owned tab bar before tapping: SwiftUI can report a control beneath that bar as hittable. The status-bar background is explicitly painted to keep scrolled content out of the system clock area. These constraints were confirmed against captured iPhone 11 screenshots on iOS 26.5.
