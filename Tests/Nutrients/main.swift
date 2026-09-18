@@ -28,4 +28,11 @@ let encoded = try JSONEncoder().encode(complete)
 let decoded = try JSONDecoder().decode(Nutrients.self, from: encoded)
 expect(decoded == complete, "Nutrients must survive persistence")
 expect((complete + old).fiber == nil, "A complete total cannot be claimed after adding an unknown value")
+let catalogJSON = Data(#"{"status":1,"product":{"product_name":"Label fixture","nutriments":{"energy-kcal_100g":100,"proteins_100g":10,"carbohydrates_100g":10,"fat_100g":2,"fiber_100g":3,"salt_100g":0,"calcium_100g":0.12,"calcium_unit":"mg","iron_100g":0.002,"potassium_100g":0.15}}}"#.utf8)
+let imported = try OpenFoodFactsClient.decode(catalogJSON, barcode: "12345678").nutrientsPer100g
+expect(imported.calcium == 120 && imported.iron == 2 && imported.potassium == 150, "OFF standard gram fields must convert to milligrams regardless of contributor display unit")
+expect(imported.salt == 0 && imported.fiber == 3, "Salt and fibre stay in grams")
+let missingJSON = Data(#"{"status":1,"product":{"product_name":"Partial label","nutriments":{"energy-kcal_100g":100,"proteins_100g":10,"carbohydrates_100g":10,"fat_100g":2,"fiber_100g":-1}}}"#.utf8)
+let partial = try OpenFoodFactsClient.decode(missingJSON, barcode: "12345678").nutrientsPer100g
+expect(partial.fiber == nil && partial.calcium == nil, "Invalid or missing optional catalog values must remain unknown")
 print("Passed \(checks) nutrition checks")

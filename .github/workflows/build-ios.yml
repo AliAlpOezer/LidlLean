@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0
       - name: Verify nutrition values and existing journals
         run: |
-          xcrun swiftc Core/Nutrients.swift Tests/Nutrients/main.swift -o "$RUNNER_TEMP/nutrient-tests"
+          xcrun swiftc Core/Nutrients.swift Core/OpenFoodFactsClient.swift Tests/Nutrients/main.swift -o "$RUNNER_TEMP/nutrient-tests"
           "$RUNNER_TEMP/nutrient-tests"
           git show 1f5cd6d4d44bf65c1efec15bc090271977c1f8ba:Core/Models.swift > "$RUNNER_TEMP/LegacyModels.swift"
           xcrun swiftc -target "$(uname -m)-apple-macosx14.0" -module-name LidlLean "$RUNNER_TEMP/LegacyModels.swift" Tests/PersistenceSeed/main.swift -o "$RUNNER_TEMP/seed-store"

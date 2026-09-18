@@ -33,7 +33,7 @@ LidlLean is a private iPhone nutrition operating system for sustainable fat loss
 
 ## Acceptance checks
 
-- The first CI gate renders the iPhone 11 app and rejects a black upper compatibility inset by inspecting the captured screenshot before any domain test or IPA archive runs. It then proves 414-point portrait layout and Today-to-Plan navigation, retaining visual evidence. Planner value rules are verified in deterministic native logic tests.
+- CI first checks nutrient semantics and opening a previous-schema journal, then renders the iPhone 11 app and rejects a black upper compatibility inset. It proves 414-point portrait layout, tab draft retention, saved-label nutrient totals, multi-day shopping and workout completion, retaining screenshots. Planner value rules are verified in deterministic native logic tests before the IPA archive.
 - The live Lidl ingestion test decodes the current public German flyer.
 - Planner, momentum, and AI-snapshot tests prove deterministic calculations and safety rules.
 - The build retains native simulator test evidence and produces an unsigned device IPA from the same source revision.

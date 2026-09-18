@@ -8,7 +8,6 @@ struct TodayView: View {
     @Query private var goals: [UserGoal]
     @Query private var reviews: [DayReview]
     @Query private var workouts: [WorkoutRecord]
-    @Query private var basket: [ShoppingItem]
     @AppStorage("plannerConfigured") private var configured = false
     @AppStorage("training.programStart") private var startTimestamp = 0.0
     @State private var settingsPresented = false
@@ -25,7 +24,6 @@ struct TodayView: View {
     private var today: [MealEntry] { entries.filter { Calendar.current.isDateInToday($0.consumedAt) } }
     private var totals: Nutrients { today.reduce(.zero) { $0 + $1.nutrients } }
     private var goal: UserGoal { goals.first ?? UserGoal() }
-    private var caloriesLeft: Double { max(goal.calorieTarget - totals.calories, 0) }
     private var momentum: MomentumSnapshot {
         MomentumEngine.snapshot(for: momentumDay(for: .now), history: momentumHistory, proteinTarget: goal.proteinTarget, calendar: .current)
     }
@@ -214,23 +212,28 @@ struct TodayView: View {
             VStack(alignment: .leading, spacing: 14) {
                 SectionEyebrow(title: "Beyond macros")
                 Text("Know what fuels you.").font(.title3.bold()).foregroundStyle(AppTheme.ink)
-                ForEach(LabelNutrient.allCases) { nutrient in
-                    let coverage = nutrient.coverage(in: today.map(\.nutrients))
-                    HStack {
-                        Text(nutrient.title).font(.subheadline.weight(.medium))
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(coverage.total.map { "\($0.formatted(.number.precision(.fractionLength(0...1)))) \(nutrient.unit)" } ?? "Unknown")
-                                .font(.subheadline.weight(.semibold))
-                            if coverage.total != nil {
-                                Text(coverage.complete ? "All logged foods" : "\(coverage.knownEntries) of \(coverage.entries) foods · partial")
-                                    .font(.caption2).foregroundStyle(AppTheme.muted)
+                if today.contains(where: { meal in LabelNutrient.allCases.contains { meal.nutrients[$0] != nil } }) {
+                    ForEach(LabelNutrient.allCases) { nutrient in
+                        let coverage = nutrient.coverage(in: today.map(\.nutrients))
+                        HStack {
+                            Text(nutrient.title).font(.subheadline.weight(.medium))
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(coverage.total.map { "\($0.formatted(.number.precision(.fractionLength(0...1)))) \(nutrient.unit)" } ?? "Unknown")
+                                    .font(.subheadline.weight(.semibold))
+                                if coverage.total != nil {
+                                    Text(coverage.complete ? "All logged foods" : "\(coverage.knownEntries) of \(coverage.entries) foods · partial")
+                                        .font(.caption2).foregroundStyle(AppTheme.muted)
+                                }
                             }
-                        }
-                    }.foregroundStyle(AppTheme.ink)
+                        }.foregroundStyle(AppTheme.ink)
+                    }
+                    Text("Known label amounts only. Missing values are not zero, and logged totals do not measure dietary adequacy.")
+                        .font(.caption).foregroundStyle(AppTheme.muted)
+                } else {
+                    Text("Add fibre, salt and minerals from your food labels when you log. Their daily totals will appear here.")
+                        .font(.subheadline).foregroundStyle(AppTheme.muted)
                 }
-                Text("Known label amounts only. Missing values are not zero, and logged totals do not measure dietary adequacy.")
-                    .font(.caption).foregroundStyle(AppTheme.muted)
             }
         }
     }
@@ -282,19 +285,6 @@ struct TodayView: View {
         let meals = entries.filter { calendar.isDate($0.consumedAt, inSameDayAs: date) }
         let reviewed = reviews.contains { calendar.isDate($0.day, inSameDayAs: date) }
         return MomentumDay(date: date, mealCount: meals.count, protein: meals.reduce(0) { $0 + $1.nutrients.protein }, reviewed: reviewed)
-    }
-
-    private var macroGrid: some View {
-        LazyVGrid(columns: columns, spacing: 12) {
-            MacroTile(label: "Protein", value: totals.protein, target: goal.proteinTarget,
-                      color: AppTheme.success, symbol: "dumbbell.fill")
-            MacroTile(label: "Carbs", value: totals.carbohydrates, target: nil,
-                      color: AppTheme.primary, symbol: "bolt.fill")
-            MacroTile(label: "Fat", value: totals.fat, target: nil,
-                      color: AppTheme.warning, symbol: "drop.fill")
-            MacroTile(label: "Meals", value: Double(today.count), target: nil,
-                      color: Color.purple, symbol: "fork.knife", unit: "")
-        }
     }
 
     private var healthCard: some View {
@@ -408,29 +398,5 @@ private struct HealthMetric: View {
             Text(value).font(.subheadline.weight(.bold)).foregroundStyle(AppTheme.ink)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct MacroTile: View {
-    let label: String
-    let value: Double
-    let target: Double?
-    let color: Color
-    let symbol: String
-    var unit = "g"
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: symbol).foregroundStyle(color)
-                .frame(width: 32, height: 32).background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
-            Text(label).font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted)
-            HStack(alignment: .lastTextBaseline, spacing: 4) {
-                Text("\(Int(value))\(unit)").font(.title3.bold()).foregroundStyle(AppTheme.ink)
-                if let target { Text("/ \(Int(target))g").font(.caption).foregroundStyle(AppTheme.muted) }
-            }
-        }
-        .padding(15)
-        .frame(maxWidth: .infinity, minHeight: 122, alignment: .leading)
-        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 18).stroke(Color.black.opacity(0.045)) }
     }
 }

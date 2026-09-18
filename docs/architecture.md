@@ -1,3 +1,11 @@
+---
+type: decision
+title: LidlLean architecture
+description: Local-first nutrition, training and shopping boundaries and their rejected alternatives.
+tags: [architecture, nutrition, training, shopping, privacy]
+timestamp: 2026-09-18T00:00:00Z
+---
+
 # Architecture decision record: LidlLean
 
 ## Goal
@@ -241,6 +249,9 @@ UI depends on pure nutrition values and the existing journals. No new server or 
 - Track label nutrients with explicit units and coverage, without prescribing reference targets. Rejected: filling missing values with generic food estimates, which would create false precision. Cost: users must supply labels for coverage to improve.
 - Extend the existing basket with a reusable-food builder and reversible bought state. Rejected: automatic multi-day menus from protein density alone, which cannot account for dietary variety, ingredients, or preferences. Cost: users choose their staples and portions once per addition.
 - Keep the existing owned tab strip and visual palette; make Today prioritize food and training actions. Rejected: a replacement navigation framework, already ruled out by the iOS geometry evidence above. Cost: explicit cross-tab navigation remains owned by the shell.
+- Mount each tab on first visit and retain it for the session. Hidden tabs are excluded from hit testing and accessibility. Rejected: recreating food forms and workout checklists on each switch. Cost: visited screens retain their small local drafts in memory.
 - Keep exercise checkoffs as session drafts, while only a confirmed workout counts toward history. Rejected: inferring completion from elapsed time or checked exercises. Cost: one explicit save at the end of a workout.
 
 Verification: native iPhone simulator interactions, legacy nutrient decoding and coverage scenarios, and an unsigned device build. Windows cannot execute SwiftUI or SwiftData; hosted macOS remains the native verification environment.
+
+Nutrient units follow the [Open Food Facts nutrition schema](https://openfoodfacts.github.io/documentation/docs/Product-Opener/schemas/schemas/product_nutrition/), checked 2026-09-18: normalized `_100g` mineral values are grams, irrespective of contributor `_unit` fields. The adapter converts calcium, iron and potassium to milligrams. Fibre and salt remain grams. Optional label values are not sent to the AI coach.

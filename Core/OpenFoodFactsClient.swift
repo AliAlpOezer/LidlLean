@@ -9,6 +9,10 @@ actor OpenFoodFactsClient {
         var request = URLRequest(url: url); request.setValue("LidlLean/1.0 personal nutrition logger", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw FoodLookupError.notFound }
+        return try Self.decode(data, barcode: ean)
+    }
+
+    nonisolated static func decode(_ data: Data, barcode: String) throws -> FoodDraft {
         let payload = try JSONDecoder().decode(Response.self, from: data)
         guard payload.status == 1, let p = payload.product, let name = p.name, let n = p.nutrients, let kcal = n.kcal, let protein = n.protein, let carbs = n.carbs, let fat = n.fat else { throw FoodLookupError.incomplete }
         var values = Nutrients(calories: kcal, protein: protein, carbohydrates: carbs, fat: fat)
@@ -22,7 +26,7 @@ actor OpenFoodFactsClient {
                 values[nutrient] = nil
             }
         }
-        return FoodDraft(name: name, barcode: ean, nutrientsPer100g: values)
+        return FoodDraft(name: name, barcode: barcode, nutrientsPer100g: values)
     }
 }
 private struct Response: Decodable { let status: Int; let product: Product? }

@@ -37,6 +37,16 @@ project.yml       XcodeGen project definition
 - Lidl catalogs are discovered from its public webpage and read through the webpage's flyer service. Many grocery offers exist only as flyer images; the structured product catalog does not cover every grocery. National flyers are not store availability guarantees.
 - Plan computes weekly planning locally. Its optional AI review previews a name-free aggregate before consent, keeps the user's OpenRouter key in Keychain, selects the highest-ranked current free text model, and denies providers that collect data.
 
+## Daily routine
+
+Today brings your chosen calorie and protein targets together with a direct path to your training session. Food drafts and workout checklists stay in place when you switch tabs.
+
+- **Beyond macros:** optionally record fibre, salt, calcium, iron and potassium per 100 g. Barcode values still need label confirmation. Daily totals show how many logged foods supplied each value; unknown values stay unknown.
+- **Plan a shop:** build a list from saved labels or add a new staple, choose a portion and up to fourteen days, then check items off in store. Known prices and nutrition are separate from unknown values. You can share the remaining list through the native share sheet.
+- **Guided training:** follow a weekly schedule, check exercises during your session, and save your actual duration with an optional note. Only explicitly saved workouts appear in history.
+
+The [connected daily routine design](docs/architecture.md#connected-daily-routine) records the privacy, migration, and calculation decisions. CI also opens a journal made with the previous schema to check that existing meals and targets survive these additions.
+
 ## Weekly planning
 
 In Plan, set your weekly calorie budget and daily protein target. The weight-loss goal is independently configurable. The app reads fourteen calendar days of HealthKit resting/active energy and weight, allows food backdating, and asks you to review complete days before using them for weekly projections. Missing HealthKit values remain unknown. Meals are logged by the app, not automatically imported from other nutrition apps.

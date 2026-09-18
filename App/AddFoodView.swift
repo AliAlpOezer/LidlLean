@@ -71,6 +71,7 @@ struct AddFoodView: View {
                     }
                 }
                 .buttonStyle(PrimaryActionStyle())
+                .accessibilityIdentifier("saveMeal")
                 .disabled(!valid || !confirmedLabel || lookingUp)
                 .opacity(valid && confirmedLabel && !lookingUp ? 1 : 0.48)
                 .padding(.horizontal, 16)

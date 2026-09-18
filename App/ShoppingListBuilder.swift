@@ -54,6 +54,7 @@ struct ShoppingListBuilder: View {
                             Text("Choose a food").tag(Optional<UUID>.none)
                             ForEach(savedFoods) { food in Text(food.name).tag(Optional(food.id)) }
                         }
+                        .accessibilityIdentifier("savedFoodPicker")
                         Text("Uses your checked labels and name exclusions. Always check ingredients for allergens.").font(.caption)
                     }
                 }

@@ -80,7 +80,7 @@ private struct AppTabBar: View {
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 6)
-        .background(AppTheme.surface.opacity(0.96))
+        .background(AppTheme.surface.ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) { Rectangle().fill(AppTheme.stroke).frame(height: 1) }
     }
 }

@@ -40,9 +40,11 @@ final class PlanningUITests: XCTestCase {
             return
         }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        let offset = ((height / 8) * width + width / 2) * 4
-        let brightness = Int(pixels[offset]) + Int(pixels[offset + 1]) + Int(pixels[offset + 2])
-        XCTAssertGreaterThan(brightness, 180, "The app must paint the upper canvas instead of showing a black compatibility inset")
+        for x in [width / 100, width * 99 / 100] {
+            let offset = ((height / 8) * width + x) * 4
+            let brightness = Int(pixels[offset]) + Int(pixels[offset + 1]) + Int(pixels[offset + 2])
+            XCTAssertGreaterThan(brightness, 180, "The app must paint both upper canvas edges instead of showing a black compatibility inset")
+        }
     }
 
     func testFoodDraftSurvivesTabSwitch() {
@@ -62,7 +64,7 @@ final class PlanningUITests: XCTestCase {
         let app = launch(fixtures: true)
         app.buttons["Log"].tap()
         app.buttons["Test oats"].tap()
-        let save = app.buttons["Log this meal"]
+        let save = app.buttons["saveMeal"]
         XCTAssertTrue(save.isEnabled)
         save.tap()
         XCTAssertTrue(app.buttons["Back to your day"].waitForExistence(timeout: 5))
@@ -80,7 +82,7 @@ final class PlanningUITests: XCTestCase {
         app.buttons["Shop"].tap()
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Basket'")).firstMatch.tap()
         app.buttons["planShop"].tap()
-        app.buttons["Saved food"].tap()
+        app.buttons["savedFoodPicker"].tap()
         app.buttons["Test oats"].tap()
         XCTAssertTrue(app.buttons["addStaple"].isEnabled)
         app.buttons["addStaple"].tap()
@@ -102,6 +104,7 @@ final class PlanningUITests: XCTestCase {
         reveal(complete, in: app)
         capture(app, name: "Guided strength session")
         complete.tap()
+        XCTAssertTrue(app.buttons["saveWorkout"].waitForExistence(timeout: 5))
         app.buttons["saveWorkout"].tap()
         XCTAssertTrue(app.staticTexts["Enter the actual session duration in minutes."].exists)
         app.textFields["workoutDuration"].tap()
@@ -126,7 +129,8 @@ final class PlanningUITests: XCTestCase {
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<8 {
-            if element.exists && element.isHittable { return }
+            let bottom = app.buttons["Train"].frame.minY - 12
+            if element.exists && element.isHittable && element.frame.maxY < bottom { return }
             app.swipeUp()
         }
         XCTAssertTrue(element.isHittable, "Element should be reachable by scrolling: \(element)")
