@@ -11,4 +11,5 @@ enum AppRuntime {
     static var preferences: UserDefaults {
         isUITest ? UserDefaults(suiteName: "LidlLean.UITests")! : .standard
     }
+    static var usesFixtures: Bool { isUITest && ProcessInfo.processInfo.arguments.contains("-seed-fixtures") }
 }

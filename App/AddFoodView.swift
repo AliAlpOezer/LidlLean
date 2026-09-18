@@ -32,6 +32,7 @@ struct AddFoodView: View {
     @State private var protein = 0.0
     @State private var carbs = 0.0
     @State private var fat = 0.0
+    @State private var labelValues: [LabelNutrient: String] = [:]
     @State private var kind: MealKind = .snack
     @State private var message: String?
     @State private var showingScanner = false
@@ -52,12 +53,14 @@ struct AddFoodView: View {
                     if !foods.isEmpty { recentFoods }
                     productCard
                     nutritionCard
+                    extraNutritionCard
                     mealCard
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 110)
             }
             .background(AppTheme.canvas.ignoresSafeArea())
+            .scrollDismissesKeyboard(.interactively)
             .safeAreaInset(edge: .bottom) {
                 Button(action: save) {
                     HStack {
@@ -215,6 +218,7 @@ struct AddFoodView: View {
                     }
                 }
                 TextField("Food name", text: $name)
+                    .accessibilityIdentifier("foodName")
                     .font(.body.weight(.semibold))
                     .padding(14)
                     .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
@@ -287,10 +291,59 @@ struct AddFoodView: View {
 
     private var scaledCalories: Double { calories * grams / 100 }
 
+    private var extraNutritionCard: some View {
+        SurfaceCard {
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Per 100 g. Leave anything absent from your label blank. Salt is not sodium; minerals use milligrams.")
+                        .font(.caption).foregroundStyle(AppTheme.muted)
+                    ForEach(LabelNutrient.allCases) { nutrient in
+                        HStack {
+                            Text(nutrient.title).font(.subheadline.weight(.medium))
+                            Spacer()
+                            TextField("Unknown", text: Binding(get: { labelValues[nutrient] ?? "" }, set: { labelValues[nutrient] = $0 }))
+                                .keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 100)
+                                .accessibilityLabel("\(nutrient.title) per 100 grams")
+                                .accessibilityIdentifier("nutrient-\(nutrient.rawValue)")
+                            Text(nutrient.unit).font(.caption).foregroundStyle(AppTheme.muted).frame(width: 24)
+                        }
+                    }
+                    if !optionalNutrientsValid {
+                        Text("Use non-negative label values, or leave the field blank.").font(.caption).foregroundStyle(AppTheme.warning)
+                    }
+                }.padding(.top, 12)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Fibre & minerals").font(.headline).foregroundStyle(AppTheme.ink)
+                    Text("Optional label details").font(.caption).foregroundStyle(AppTheme.muted)
+                }
+            }
+            .tint(AppTheme.success)
+        }
+    }
+
+    private func labelNumber(_ nutrient: LabelNutrient) -> Double? {
+        let text = (labelValues[nutrient] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return Double(text.replacingOccurrences(of: ",", with: "."))
+    }
+
+    private var optionalNutrientsValid: Bool {
+        LabelNutrient.allCases.allSatisfy { nutrient in
+            let text = (labelValues[nutrient] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return true }
+            guard let value = labelNumber(nutrient) else { return false }
+            return value.isFinite && value >= 0 && value <= nutrient.maximumPer100g
+        }
+    }
+
+    private func applyLabelValues(_ nutrients: Nutrients) {
+        labelValues = Dictionary(uniqueKeysWithValues: LabelNutrient.allCases.map { ($0, nutrients[$0].map { String($0) } ?? "") })
+    }
+
     private var valid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && grams.isFinite && grams > 0 && grams <= 20_000 &&
         [calories, protein, carbs, fat].allSatisfy { $0.isFinite && $0 >= 0 } &&
-        calories <= 1_000 && protein + carbs + fat <= 105
+        calories <= 1_000 && protein + carbs + fat <= 105 && optionalNutrientsValid
     }
 
     private func apply(_ food: Food) {
@@ -300,6 +353,7 @@ struct AddFoodView: View {
         protein = food.nutrientsPer100g.protein
         carbs = food.nutrientsPer100g.carbohydrates
         fat = food.nutrientsPer100g.fat
+        applyLabelValues(food.nutrientsPer100g)
         source = food.source
         confirmedLabel = true
         mode = .manual
@@ -320,6 +374,7 @@ struct AddFoodView: View {
             protein = draft.nutrientsPer100g.protein
             carbs = draft.nutrientsPer100g.carbohydrates
             fat = draft.nutrientsPer100g.fat
+            applyLabelValues(draft.nutrientsPer100g)
             source = .openFoodFacts
             message = "Catalog values imported. Compare them with the package, then confirm."
         } catch {
@@ -330,7 +385,8 @@ struct AddFoodView: View {
     private func save() {
         guard valid && confirmedLabel else { return }
         let before = currentMomentum
-        let nutrients = Nutrients(calories: calories, protein: protein, carbohydrates: carbs, fat: fat)
+        var nutrients = Nutrients(calories: calories, protein: protein, carbohydrates: carbs, fat: fat)
+        for nutrient in LabelNutrient.allCases { nutrients[nutrient] = labelNumber(nutrient) }
         let food = Food(name: name.trimmingCharacters(in: .whitespacesAndNewlines), barcode: barcode.isEmpty ? nil : barcode,
                         nutrientsPer100g: nutrients, source: source)
         food.labelConfirmed = true
@@ -350,6 +406,7 @@ struct AddFoodView: View {
             protein = 0
             carbs = 0
             fat = 0
+            labelValues = [:]
             confirmedLabel = false
             source = .manual
         } catch {
@@ -407,6 +464,7 @@ private struct NutrientInput: View {
             }
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 TextField("0", value: $value, format: .number)
+                    .accessibilityIdentifier("macro-\(title.lowercased())")
                     .keyboardType(.decimalPad)
                     .font(.title3.weight(.bold))
                     .foregroundStyle(AppTheme.ink)

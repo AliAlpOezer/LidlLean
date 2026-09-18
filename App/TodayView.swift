@@ -7,12 +7,20 @@ struct TodayView: View {
     @Query(sort: \MealEntry.consumedAt, order: .reverse) private var entries: [MealEntry]
     @Query private var goals: [UserGoal]
     @Query private var reviews: [DayReview]
+    @Query private var workouts: [WorkoutRecord]
+    @Query private var basket: [ShoppingItem]
+    @AppStorage("plannerConfigured") private var configured = false
+    @AppStorage("training.programStart") private var startTimestamp = 0.0
+    @State private var settingsPresented = false
     @State private var activity = ActivitySnapshot.unavailable
     @State private var healthError: String?
     @State private var healthImportMessage: String?
     @State private var importingHealthXML = false
     private let health = HealthKitClient()
     let openLog: () -> Void
+    let openTrain: () -> Void
+    let openShop: () -> Void
+    let openPlan: () -> Void
 
     private var today: [MealEntry] { entries.filter { Calendar.current.isDateInToday($0.consumedAt) } }
     private var totals: Nutrients { today.reduce(.zero) { $0 + $1.nutrients } }
@@ -34,12 +42,13 @@ struct TodayView: View {
         ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     header
-                    energyCard
-                    momentumCard
+                    if configured { energyCard } else { setupCard }
                     quickActions
-                    macroGrid
-                    healthCard
+                    trainingCard
+                    nutritionCard
                     mealsCard
+                    momentumCard
+                    healthCard
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 28)
@@ -47,13 +56,13 @@ struct TodayView: View {
             .background(AppTheme.canvas.ignoresSafeArea())
             .accessibilityIdentifier("todayScreen")
             .task {
-                if goals.isEmpty { context.insert(UserGoal()) }
                 guard !AppRuntime.isUITest else { return }
                 activity = await health.todaySnapshot()
             }
             .onReceive(NotificationCenter.default.publisher(for: .healthDataDidChange)) { _ in
                 Task { activity = await health.todaySnapshot() }
             }
+            .sheet(isPresented: $settingsPresented) { PlannerSettingsView() }
             .fileImporter(isPresented: $importingHealthXML, allowedContentTypes: [.xml], allowsMultipleSelection: false) { result in
                 guard case .success(let urls) = result, let url = urls.first else { return }
                 Task {
@@ -98,50 +107,67 @@ struct TodayView: View {
     }
 
     private var energyCard: some View {
-        HStack(alignment: .top, spacing: 18) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Label("DAILY BUDGET", systemImage: "bolt.fill")
-                        .font(.caption.weight(.bold))
-                        .tracking(1.1)
-                    Spacer()
-                    Text(caloriesLeft > 0 ? "On track" : "Target reached")
-                        .font(.caption.weight(.bold))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .background(AppTheme.lime.opacity(0.95), in: Capsule())
-                        .foregroundStyle(AppTheme.ink)
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Label("TODAY'S FUEL", systemImage: "leaf.fill").font(.caption.weight(.bold)).tracking(1.1)
+                Spacer()
+                Button { settingsPresented = true } label: {
+                    Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44)
                 }
-                .foregroundStyle(.white.opacity(0.78))
-                HStack(alignment: .lastTextBaseline, spacing: 7) {
-                    Text("\(Int(caloriesLeft))").font(.system(size: 48, weight: .bold, design: .rounded))
-                    Text("kcal left").font(.headline).foregroundStyle(.white.opacity(0.68))
-                }
-                .foregroundStyle(.white)
-                ProgressView(value: min(totals.calories / max(goal.calorieTarget, 1), 1))
-                    .tint(AppTheme.lime).scaleEffect(x: 1, y: 1.7, anchor: .center)
-                Text("\(Int(totals.calories)) eaten of \(Int(goal.calorieTarget)) kcal")
-                    .font(.footnote.weight(.medium)).foregroundStyle(.white.opacity(0.68))
+                .accessibilityLabel("Edit nutrition targets")
             }
-            Spacer(minLength: 0)
-            ZStack {
-                Circle().stroke(.white.opacity(0.14), lineWidth: 9)
-                Circle()
-                    .trim(from: 0, to: min(totals.calories / max(goal.calorieTarget, 1), 1))
-                    .stroke(AppTheme.lime, style: StrokeStyle(lineWidth: 9, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                Image(systemName: "flame.fill").font(.title2).foregroundStyle(AppTheme.lime)
+            .foregroundStyle(AppTheme.lime)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 24) { energyMetric; proteinMetric }
+                VStack(alignment: .leading, spacing: 20) { energyMetric; proteinMetric }
             }
-            .frame(width: 72, height: 72)
+            HStack(spacing: 18) {
+                Text("\(Int(totals.carbohydrates)) g carbs")
+                Text("\(Int(totals.fat)) g fat")
+            }
+            .font(.caption.weight(.medium)).foregroundStyle(.white.opacity(0.72))
         }
-        .padding(20)
+        .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(colors: [AppTheme.hero, AppTheme.primary.opacity(0.92)],
                            startPoint: .topLeading, endPoint: .bottomTrailing),
             in: RoundedRectangle(cornerRadius: 28, style: .continuous)
         )
-        .shadow(color: AppTheme.ink.opacity(0.18), radius: 18, y: 9)
+    }
+
+    private var energyMetric: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(abs(goal.calorieTarget - totals.calories), format: .number.precision(.fractionLength(0)))
+                .font(.system(.largeTitle, design: .rounded, weight: .bold)).foregroundStyle(.white)
+            Text(totals.calories > goal.calorieTarget ? "kcal above target" : "kcal remaining")
+                .font(.subheadline.weight(.medium)).foregroundStyle(.white.opacity(0.78))
+            ProgressView(value: min(totals.calories / max(goal.calorieTarget, 1), 1)).tint(AppTheme.lime)
+            Text("\(Int(totals.calories)) / \(Int(goal.calorieTarget)) kcal")
+                .font(.caption).foregroundStyle(.white.opacity(0.68))
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var proteinMetric: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(Int(totals.protein)) g").font(.system(.largeTitle, design: .rounded, weight: .bold)).foregroundStyle(AppTheme.lime)
+            Text("protein today").font(.subheadline.weight(.medium)).foregroundStyle(.white.opacity(0.78))
+            ProgressView(value: min(totals.protein / max(goal.proteinTarget, 1), 1)).tint(AppTheme.lime)
+            Text("\(Int(max(0, goal.proteinTarget - totals.protein))) g to your \(Int(goal.proteinTarget)) g target")
+                .font(.caption).foregroundStyle(.white.opacity(0.68))
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var setupCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionEyebrow(title: "Your routine, your targets")
+                Text("Make room for a stronger you.").font(.title2.bold()).foregroundStyle(AppTheme.ink)
+                Text("Choose your nutrition targets to see your daily progress. You can log food and train right away.")
+                    .font(.subheadline).foregroundStyle(AppTheme.muted)
+                Button("Set my targets") { settingsPresented = true }.buttonStyle(PrimaryActionStyle())
+            }
+        }
     }
 
     private var quickActions: some View {
@@ -151,13 +177,61 @@ struct TodayView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(PrimaryActionStyle())
-            Button(action: openLog) {
-                Image(systemName: "barcode.viewfinder")
-                    .font(.headline.weight(.bold))
-                    .frame(width: 48, height: 48)
+            Button(action: openShop) {
+                Label("Shop", systemImage: "basket").frame(minWidth: 70)
             }
             .buttonStyle(QuietActionStyle())
-            .accessibilityLabel("Scan a barcode")
+            .accessibilityLabel("Open shopping list")
+        }
+    }
+
+    private var trainingCard: some View {
+        let start = Date(timeIntervalSince1970: startTimestamp)
+        let session = startTimestamp > 0 ? TrainingProgram.session(for: .now, startDate: start) : nil
+        let dayID = TrainingProgram.dayID(for: .now, startDate: start)
+        let completed = startTimestamp > 0 && workouts.contains { $0.programDayID == dayID }
+        return Button(action: openTrain) {
+            HStack(spacing: 14) {
+                Image(systemName: completed ? "checkmark" : "figure.strengthtraining.traditional")
+                    .font(.title3.weight(.bold)).frame(width: 48, height: 48)
+                    .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 16))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(completed ? "Training logged" : session?.title ?? (startTimestamp == 0 ? "Start your strength routine" : "Time to recover"))
+                        .font(.headline)
+                    Text(completed ? "Your session is saved. Nice work." : session.map { "\($0.durationMinutes) min · View today's session" } ?? "Your four-week training companion")
+                        .font(.caption).foregroundStyle(AppTheme.muted)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right").font(.subheadline.weight(.bold))
+            }
+            .foregroundStyle(AppTheme.ink).padding(16)
+            .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 22))
+        }.buttonStyle(.plain).accessibilityIdentifier("todayTraining")
+    }
+
+    private var nutritionCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                SectionEyebrow(title: "Beyond macros")
+                Text("Know what fuels you.").font(.title3.bold()).foregroundStyle(AppTheme.ink)
+                ForEach(LabelNutrient.allCases) { nutrient in
+                    let coverage = nutrient.coverage(in: today.map(\.nutrients))
+                    HStack {
+                        Text(nutrient.title).font(.subheadline.weight(.medium))
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(coverage.total.map { "\($0.formatted(.number.precision(.fractionLength(0...1)))) \(nutrient.unit)" } ?? "Unknown")
+                                .font(.subheadline.weight(.semibold))
+                            if coverage.total != nil {
+                                Text(coverage.complete ? "All logged foods" : "\(coverage.knownEntries) of \(coverage.entries) foods · partial")
+                                    .font(.caption2).foregroundStyle(AppTheme.muted)
+                            }
+                        }
+                    }.foregroundStyle(AppTheme.ink)
+                }
+                Text("Known label amounts only. Missing values are not zero, and logged totals do not measure dietary adequacy.")
+                    .font(.caption).foregroundStyle(AppTheme.muted)
+            }
         }
     }
 
@@ -198,6 +272,7 @@ struct TodayView: View {
                     Spacer()
                     Text("Level \(momentum.level)").font(.caption.weight(.bold)).foregroundStyle(AppTheme.success)
                 }
+                Button("Review my day", action: openPlan).buttonStyle(QuietActionStyle())
             }
         }
     }

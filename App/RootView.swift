@@ -3,26 +3,22 @@ import SwiftUI
 struct RootView: View {
     @State private var healthSyncMessage: String?
     @State private var selection = AppTab.today
+    @State private var visited: Set<AppTab> = [.today]
 
     var body: some View {
         ZStack {
             AppTheme.canvas.ignoresSafeArea()
-            Group {
-                switch selection {
-                case .today:
-                    TodayView { selection = .log }
-                case .log:
-                    AddFoodView()
-                case .shop:
-                    LidlShoppingView()
-                case .plan:
-                    WeeklyCoachView()
-                case .train:
-                    TrainingView()
+            ForEach(AppTab.allCases) { tab in
+                if visited.contains(tab) || tab == selection {
+                    page(for: tab)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .opacity(selection == tab ? 1 : 0)
+                        .allowsHitTesting(selection == tab)
+                        .accessibilityHidden(selection != tab)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .onChange(of: selection) { _, tab in visited.insert(tab) }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             AppTabBar(selection: $selection)
         }
@@ -43,6 +39,18 @@ struct RootView: View {
             Button("Done", role: .cancel) { healthSyncMessage = nil }
         } message: {
             Text(healthSyncMessage ?? "")
+        }
+    }
+
+    @ViewBuilder private func page(for tab: AppTab) -> some View {
+        switch tab {
+        case .today:
+            TodayView(openLog: { selection = .log }, openTrain: { selection = .train },
+                      openShop: { selection = .shop }, openPlan: { selection = .plan })
+        case .log: AddFoodView()
+        case .shop: LidlShoppingView()
+        case .plan: WeeklyCoachView()
+        case .train: TrainingView()
         }
     }
 }

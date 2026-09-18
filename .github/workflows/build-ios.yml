@@ -14,11 +14,22 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify nutrition values and existing journals
+        run: |
+          xcrun swiftc Core/Nutrients.swift Tests/Nutrients/main.swift -o "$RUNNER_TEMP/nutrient-tests"
+          "$RUNNER_TEMP/nutrient-tests"
+          git show 1f5cd6d4d44bf65c1efec15bc090271977c1f8ba:Core/Models.swift > "$RUNNER_TEMP/LegacyModels.swift"
+          xcrun swiftc -target "$(uname -m)-apple-macosx14.0" -module-name LidlLean "$RUNNER_TEMP/LegacyModels.swift" Tests/PersistenceSeed/main.swift -o "$RUNNER_TEMP/seed-store"
+          "$RUNNER_TEMP/seed-store" "$RUNNER_TEMP/migration.store"
+          xcrun swiftc -target "$(uname -m)-apple-macosx14.0" -module-name LidlLean Core/Nutrients.swift Core/Models.swift Tests/Persistence/main.swift -o "$RUNNER_TEMP/check-store"
+          "$RUNNER_TEMP/check-store" "$RUNNER_TEMP/migration.store"
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
-      - name: Render the iPhone 11 app before all other checks
+      - name: Verify and render iPhone 11 user journeys
         run: |
           RUNTIME=$(xcrun simctl list runtimes available -j | python3 -c 'import sys,json; r=json.load(sys.stdin)["runtimes"]; print([x["identifier"] for x in r if x["platform"] == "iOS"][-1])')
           DEVICE_TYPE=$(xcrun simctl list devicetypes -j | python3 -c 'import sys,json; d=json.load(sys.stdin)["devicetypes"]; print(next(x["identifier"] for x in d if x["name"] == "iPhone 11"))')
@@ -33,7 +44,16 @@ jobs:
           plutil -p "$APP_PATH/Info.plist"
           plutil -extract UILaunchStoryboardName raw "$APP_PATH/Info.plist"
           plutil -extract UIRequiresFullScreen raw "$APP_PATH/Info.plist"
+          mkdir -p build/screenshots
+          xcrun xcresulttool export attachments --path build/PlanningUITests.xcresult --output-path build/screenshots
           exit $TEST_STATUS
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-screenshots
+          path: build/screenshots
+          retention-days: 7
       - name: Upload render evidence
         if: always()
         uses: actions/upload-artifact@v4

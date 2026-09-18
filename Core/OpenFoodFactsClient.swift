@@ -11,9 +11,34 @@ actor OpenFoodFactsClient {
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw FoodLookupError.notFound }
         let payload = try JSONDecoder().decode(Response.self, from: data)
         guard payload.status == 1, let p = payload.product, let name = p.name, let n = p.nutrients, let kcal = n.kcal, let protein = n.protein, let carbs = n.carbs, let fat = n.fat else { throw FoodLookupError.incomplete }
-        return FoodDraft(name: name, barcode: ean, nutrientsPer100g: Nutrients(calories: kcal, protein: protein, carbohydrates: carbs, fat: fat))
+        var values = Nutrients(calories: kcal, protein: protein, carbohydrates: carbs, fat: fat)
+        values.fiber = n.fiber
+        values.salt = n.salt
+        values.calcium = n.calcium.map { $0 * 1_000 }
+        values.iron = n.iron.map { $0 * 1_000 }
+        values.potassium = n.potassium.map { $0 * 1_000 }
+        for nutrient in LabelNutrient.allCases {
+            if let value = values[nutrient], !value.isFinite || value < 0 || value > nutrient.maximumPer100g {
+                values[nutrient] = nil
+            }
+        }
+        return FoodDraft(name: name, barcode: ean, nutrientsPer100g: values)
     }
 }
 private struct Response: Decodable { let status: Int; let product: Product? }
 private struct Product: Decodable { let name: String?; let nutrients: Nutriment?; enum CodingKeys: String, CodingKey { case name = "product_name"; case nutrients = "nutriments" } }
-private struct Nutriment: Decodable { let kcal: Double?; let protein: Double?; let carbs: Double?; let fat: Double?; enum CodingKeys: String, CodingKey { case kcal = "energy-kcal_100g"; case protein = "proteins_100g"; case carbs = "carbohydrates_100g"; case fat = "fat_100g" } }
+private struct Nutriment: Decodable {
+    let kcal: Double?
+    let protein: Double?
+    let carbs: Double?
+    let fat: Double?
+    let fiber: Double?
+    let salt: Double?
+    let calcium: Double?
+    let iron: Double?
+    let potassium: Double?
+    enum CodingKeys: String, CodingKey {
+        case kcal = "energy-kcal_100g", protein = "proteins_100g", carbs = "carbohydrates_100g", fat = "fat_100g"
+        case fiber = "fiber_100g", salt = "salt_100g", calcium = "calcium_100g", iron = "iron_100g", potassium = "potassium_100g"
+    }
+}

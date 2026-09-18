@@ -63,7 +63,7 @@ The app must remain valuable offline. Barcode catalog, HealthKit, hosted build, 
 
 ## Deferred scope
 
-Camera-based food recognition, recipe planning, micronutrient coverage, cloud sync, and a proxy-backed AI service are later stages with separate design records.
+Camera-based food recognition, recipe planning, cloud sync, and a proxy-backed AI service are later stages with separate design records. Optional label-based nutrient tracking is described below.
 
 ## Training and wellbeing subsystem
 
@@ -209,3 +209,38 @@ The carriers are HTTPS GETs for public Lidl data, a six-hour atomic JSON cache f
 - Parsing only flyer dates: it proves freshness but provides no shopping value.
 - Treating page text as structured products: OCR-like text lacks reliable price-to-product boundaries.
 - Sending flyer images to an LLM by default: expensive, non-deterministic, and unnecessary where Lidl already exposes structured public data.
+
+## Connected daily routine
+
+Updated: 2026-09-18
+
+Goal: help the user decide what to eat, what to buy, and how to train with fewer daily decisions, while keeping their own targets and checked labels authoritative.
+
+### Invariants
+
+1. Optional nutrients are unknown when absent, including in historical meals. A measured zero is distinct from missing data.
+2. Nutrient totals show their coverage; partial logs never claim dietary adequacy or diagnose a deficiency.
+3. Shopping and workout completion require an explicit user action and a successful local save.
+4. Existing meal snapshots and existing user targets retain their meaning. Changes are additive to the local data model.
+5. The daily dashboard reads journal state; it never silently records a meal, workout, or purchase.
+
+### Components and seams
+
+| Component | Owns | Contract and failure | Autonomy |
+| --- | --- | --- | --- |
+| Nutrient values | Optional fibre, salt, calcium, iron, potassium and unit-safe scaling | Codable `Nutrients`; old payloads decode absent fields as nil; aggregate coverage counts known meal values | Deterministic |
+| Food capture | Label values and explicit confirmation | Confirmed values become immutable meal snapshots; invalid optional values block saving with an explanation | Human-triggered |
+| Daily routine | Read-only food, workout and basket summary with direct navigation | SwiftData queries and navigation closures; unavailable integrations do not prevent local actions | Read-only |
+| Shopping checklist | Saved-food portions over a chosen number of days, manual staples, purchased state | Explicit SwiftData save; unknown price stays unknown; failure rolls back and is visible | Human-triggered |
+| Guided training | Exercise checklist, actual duration and optional reflection | Local draft until confirmed `WorkoutRecord`; save failure keeps draft available | Human-triggered |
+
+UI depends on pure nutrition values and the existing journals. No new server or provider boundary is introduced. Repeated checklist toggles set a value; repeated completion is guarded by the existing program-day identifier. Editing a saved label does not affect historic meal snapshots. Shopping drafts do not mutate the journal or automatically purchase anything. Cancellation discards only unsaved form state.
+
+### Decisions
+
+- Track label nutrients with explicit units and coverage, without prescribing reference targets. Rejected: filling missing values with generic food estimates, which would create false precision. Cost: users must supply labels for coverage to improve.
+- Extend the existing basket with a reusable-food builder and reversible bought state. Rejected: automatic multi-day menus from protein density alone, which cannot account for dietary variety, ingredients, or preferences. Cost: users choose their staples and portions once per addition.
+- Keep the existing owned tab strip and visual palette; make Today prioritize food and training actions. Rejected: a replacement navigation framework, already ruled out by the iOS geometry evidence above. Cost: explicit cross-tab navigation remains owned by the shell.
+- Keep exercise checkoffs as session drafts, while only a confirmed workout counts toward history. Rejected: inferring completion from elapsed time or checked exercises. Cost: one explicit save at the end of a workout.
+
+Verification: native iPhone simulator interactions, legacy nutrient decoding and coverage scenarios, and an unsigned device build. Windows cannot execute SwiftUI or SwiftData; hosted macOS remains the native verification environment.

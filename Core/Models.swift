@@ -16,16 +16,6 @@ enum MealKind: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-struct Nutrients: Codable, Equatable {
-    var calories: Double
-    var protein: Double
-    var carbohydrates: Double
-    var fat: Double
-    static let zero = Nutrients(calories: 0, protein: 0, carbohydrates: 0, fat: 0)
-    static func + (lhs: Nutrients, rhs: Nutrients) -> Nutrients { Nutrients(calories: lhs.calories + rhs.calories, protein: lhs.protein + rhs.protein, carbohydrates: lhs.carbohydrates + rhs.carbohydrates, fat: lhs.fat + rhs.fat) }
-    func scaled(by factor: Double) -> Nutrients { Nutrients(calories: calories * factor, protein: protein * factor, carbohydrates: carbohydrates * factor, fat: fat * factor) }
-}
-
 @Model final class Food {
     @Attribute(.unique) var id: UUID
     var name: String
@@ -73,6 +63,8 @@ struct Nutrients: Codable, Equatable {
     var plannedFor: Date
     var priceKnown: Bool = true
     var nutritionConfirmed: Bool = false
+    var purchasedAt: Date? = nil
+    var coverageDays: Int = 1
 
     init(offerID: String, name: String, unitPrice: Double, productURL: String?, imageURL: String?, plannedFor: Date = .now) {
         id = UUID()

@@ -14,6 +14,8 @@ struct LidlShoppingView: View {
     @State private var flyerProductsPresented = false
     @State private var shoppingDay = Date.now
     @State private var refreshing = false
+    @State private var builderPresented = false
+    @State private var saveError: String?
     private let client = LidlCatalogClient()
 
     private var visibleOffers: [LidlOffer] {
@@ -23,9 +25,17 @@ struct LidlShoppingView: View {
             (search.isEmpty || offer.title.localizedCaseInsensitiveContains(search) || offer.brand?.localizedCaseInsensitiveContains(search) == true)
         }
     }
-    private var totalPrice: Double { basket.filter(\.priceKnown).reduce(0) { $0 + $1.unitPrice * Double($1.quantity) } }
-    private var totalCalories: Double { basket.filter(\.nutritionConfirmed).reduce(0) { $0 + ($1.caloriesPer100g ?? 0) * $1.plannedGrams / 100 } }
-    private var totalProtein: Double { basket.filter(\.nutritionConfirmed).reduce(0) { $0 + ($1.proteinPer100g ?? 0) * $1.plannedGrams / 100 } }
+    private var pending: [ShoppingItem] { basket.filter { $0.purchasedAt == nil } }
+    private var orderedBasket: [ShoppingItem] { pending + basket.filter { $0.purchasedAt != nil } }
+    private var totalPrice: Double { pending.filter(\.priceKnown).reduce(0) { $0 + $1.unitPrice * Double($1.quantity) } }
+    private var totalCalories: Double { pending.filter(\.nutritionConfirmed).reduce(0) { $0 + ($1.caloriesPer100g ?? 0) * $1.plannedGrams / 100 } }
+    private var totalProtein: Double { pending.filter(\.nutritionConfirmed).reduce(0) { $0 + ($1.proteinPer100g ?? 0) * $1.plannedGrams / 100 } }
+    private var shareText: String {
+        (["My shopping list"] + pending.map {
+            "\($0.name) - \(Int($0.plannedGrams)) g total, \($0.quantity) pack(s), shop \($0.plannedFor.formatted(date: .abbreviated, time: .omitted))" +
+                ($0.priceKnown ? " - \($0.totalPrice.formatted(.currency(code: "EUR"))) listed price" : " - price unknown")
+        } + ["Check pack sizes, current prices and availability in store."]).joined(separator: "\n")
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,7 +48,11 @@ struct LidlShoppingView: View {
                 }
             }
             .background(AppTheme.canvas.ignoresSafeArea())
-        .task { await load() }
+        .task { if !AppRuntime.isUITest { await load() } }
+        .sheet(isPresented: $builderPresented) { ShoppingListBuilder() }
+        .alert("Shopping list", isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
+            Button("OK", role: .cancel) { saveError = nil }
+        } message: { Text(saveError ?? "") }
     }
 
     private var shopHeader: some View {
@@ -69,7 +83,7 @@ struct LidlShoppingView: View {
         HStack(spacing: 4) {
             shopSegment("Offers", systemImage: "tag.fill", index: 0)
             shopSegment("Flyer", systemImage: "doc.text.image", index: 1)
-            shopSegment("Basket", systemImage: "basket.fill", index: 2, badge: basket.count)
+            shopSegment("Basket", systemImage: "basket.fill", index: 2, badge: pending.count)
         }
         .padding(4)
         .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -95,6 +109,10 @@ struct LidlShoppingView: View {
     private var offersView: some View {
         ScrollView {
             LazyVStack(spacing: 14) {
+                Button { selection = 2; builderPresented = true } label: {
+                    Label("Plan a shop from your staples", systemImage: "list.bullet.clipboard")
+                }
+                .buttonStyle(PrimaryActionStyle()).padding(.horizontal, 16)
                 catalogHeader
                 HStack {
                     Label("Food offers", systemImage: "fork.knife")
@@ -218,6 +236,12 @@ struct LidlShoppingView: View {
     private var basketView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Button { builderPresented = true } label: { Label("Plan a shop", systemImage: "plus") }
+                        .buttonStyle(PrimaryActionStyle()).accessibilityIdentifier("planShop")
+                    ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 48) }
+                        .buttonStyle(QuietActionStyle()).disabled(pending.isEmpty).accessibilityLabel("Share shopping list")
+                }.padding(.horizontal, 16)
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Label("YOUR BASKET", systemImage: "basket.fill")
@@ -225,7 +249,7 @@ struct LidlShoppingView: View {
                             .tracking(1.1)
                             .foregroundStyle(.white.opacity(0.72))
                         Spacer()
-                        Text("\(basket.count) item\(basket.count == 1 ? "" : "s")")
+                        Text("\(pending.count) left · \(basket.count - pending.count) bought")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(AppTheme.ink)
                             .padding(.horizontal, 10)
@@ -237,9 +261,12 @@ struct LidlShoppingView: View {
                         Text("known subtotal").font(.subheadline.weight(.medium)).foregroundStyle(.white.opacity(0.68))
                     }
                     HStack(spacing: 8) {
-                        MetricPill(icon: "flame.fill", value: "\(Int(totalCalories))", label: "kcal", tint: AppTheme.lime)
-                        MetricPill(icon: "dumbbell.fill", value: "\(Int(totalProtein))g", label: "protein", tint: AppTheme.lime)
+                        Label("\(Int(totalCalories)) kcal", systemImage: "flame.fill")
+                        Label("\(Int(totalProtein)) g protein", systemImage: "dumbbell.fill")
                     }
+                    .font(.subheadline.weight(.medium)).foregroundStyle(AppTheme.lime)
+                    Text("\(pending.filter { !$0.priceKnown }.count) prices unknown · \(pending.filter { !$0.nutritionConfirmed }.count) nutrition labels unchecked")
+                        .font(.caption).foregroundStyle(.white.opacity(0.72))
                 }
                 .padding(20)
                 .foregroundStyle(.white)
@@ -252,24 +279,31 @@ struct LidlShoppingView: View {
                     HStack {
                         SectionEyebrow(title: "Planned items")
                         Spacer()
-                        Text("Tap an item to adjust it").font(.caption).foregroundStyle(AppTheme.muted)
+                        Text("Check off as you shop").font(.caption).foregroundStyle(AppTheme.muted)
                     }
                     .padding(.horizontal, 16)
-                    ForEach(basket) { item in
+                    ForEach(orderedBasket) { item in
                         SurfaceCard {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack(alignment: .top) {
+                                    Button { togglePurchased(item) } label: {
+                                        Image(systemName: item.purchasedAt == nil ? "circle" : "checkmark.circle.fill")
+                                            .font(.title2).foregroundStyle(AppTheme.success).frame(width: 44, height: 44)
+                                    }
+                                    .accessibilityLabel(item.purchasedAt == nil ? "Mark \(item.name) bought" : "Mark \(item.name) still needed")
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(item.name).font(.headline).foregroundStyle(AppTheme.ink)
+                                        Text(item.name).font(.headline).foregroundStyle(AppTheme.ink).strikethrough(item.purchasedAt != nil)
                                         Text(item.priceKnown ? (item.unitPrice * Double(item.quantity)).formatted(.currency(code: "EUR")) : "Price unknown")
                                             .font(.subheadline.weight(.bold)).foregroundStyle(item.priceKnown ? AppTheme.success : AppTheme.warning)
                                         Text("Buy on \(item.plannedFor.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))")
                                             .font(.caption.weight(.medium)).foregroundStyle(AppTheme.muted)
+                                        Text("\(Int(item.plannedGrams)) g total · \(item.coverageDays) day\(item.coverageDays == 1 ? "" : "s")")
+                                            .font(.caption).foregroundStyle(AppTheme.muted)
                                     }
                                     Spacer()
                                     Button(role: .destructive) {
                                         context.delete(item)
-                                        try? context.save()
+                                        saveBasket()
                                     } label: {
                                         Image(systemName: "trash")
                                             .frame(width: 40, height: 40)
@@ -277,7 +311,10 @@ struct LidlShoppingView: View {
                                     }
                                     .accessibilityLabel("Remove \(item.name)")
                                 }
-                                BasketRow(item: item)
+                                if item.purchasedAt == nil {
+                                    DisclosureGroup("Adjust amount & label") { BasketRow(item: item).padding(.top, 8) }
+                                        .font(.subheadline).tint(AppTheme.primary)
+                                }
                             }
                         }
                         .padding(.horizontal, 16)
@@ -300,6 +337,16 @@ struct LidlShoppingView: View {
         defer { refreshing = false }
         do { catalog = try await client.weeklyCatalog(forceRefresh: force); errorMessage = nil }
         catch { errorMessage = error.localizedDescription }
+    }
+
+    private func togglePurchased(_ item: ShoppingItem) {
+        item.purchasedAt = item.purchasedAt == nil ? .now : nil
+        saveBasket()
+    }
+
+    private func saveBasket() {
+        do { try context.save() }
+        catch { context.rollback(); saveError = "Could not save changes: \(error.localizedDescription)" }
     }
 
     private func add(_ offer: LidlOffer, for day: Date = .now) {
