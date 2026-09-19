@@ -48,7 +48,7 @@ try {
     $env:PATH -split ';' | Where-Object { $_ -match 'Swift' -and (Test-Path -LiteralPath $_ -PathType Container) } | Select-Object -Unique | ForEach-Object {
         Get-ChildItem -LiteralPath $_ -Filter '*.dll' | Copy-Item -Destination $Output
     }
-    foreach ($name in @('Start-HealthKitSigning.ps1', 'inspect_ipa.py', 'package_ipa.py', 'README.md', 'Setup-LocalDependencies.py')) {
+    foreach ($name in @('Start-HealthKitSigning.ps1', 'Start-ConnectedPhoneSigning.ps1', 'inspect_ipa.py', 'package_ipa.py', 'README.md', 'Setup-LocalDependencies.py')) {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $Output
     }
     & (Join-Path $Output 'LidlLeanSigner.exe') --self-test
