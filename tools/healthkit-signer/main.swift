@@ -217,9 +217,22 @@ func run() async throws {
     if isNewVault {
         let confirmation = try secret("Confirm new local vault password: ")
         try require(vaultPassword == confirmation, "Local vault passwords did not match. No device state was created.")
+    } else {
+        do {
+            _ = try DeviceDataManager.load(from: deviceDataURL, password: vaultPassword)
+        } catch DeviceDataError.invalidPassword {
+            throw Stop(reason: "The local vault password does not unlock device.dat. Reset its local state before trying again.")
+        } catch DeviceDataError.corruptedData {
+            throw Stop(reason: "The saved local device state is corrupted. Reset its local state before trying again.")
+        } catch {
+            throw Stop(reason: "The saved local device state could not be read safely. Reset its local state before trying again.")
+        }
     }
     let portalOptions = PortalOptions(deviceDataPath: deviceDataURL.path,
         deviceDataPassword: vaultPassword, localAnisetteDir: options["--libs"]!)
+    failurePhase = "local Apple-device authentication data"
+    let initialAnisette = try await CommandHandler.fetchAnisetteHeaders(options: portalOptions)
+    var anisette = initialAnisette.0
     failurePhase = "Apple Account sign-in"
     let email = try line("Apple Account email:")
     let password = try secret("Apple Account password (never saved): ")
@@ -227,8 +240,6 @@ func run() async throws {
     var auth: AuthSession?
     var refreshedAfterTwoFactor = false
     while auth == nil {
-        failurePhase = "local Apple-device authentication data"
-        let (anisette, _, _, _) = try await CommandHandler.fetchAnisetteHeaders(options: portalOptions)
         await twoFactorProgress.reset()
         failurePhase = "Apple Account sign-in"
         do {
@@ -239,6 +250,9 @@ func run() async throws {
                         "Apple requested another two-factor sign-in after a validated code. Stopped to avoid a verification loop.")
             refreshedAfterTwoFactor = true
             print("Apple requested a fresh post-verification session. Refreshing local device authentication once; do not enter another code yet.")
+            failurePhase = "local Apple-device authentication data"
+            let refreshedAnisette = try await CommandHandler.fetchAnisetteHeaders(options: portalOptions)
+            anisette = refreshedAnisette.0
         } catch {
             throw error
         }
