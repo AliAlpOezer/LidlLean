@@ -214,7 +214,12 @@ func run() async throws {
     let deviceDataURL = state.appendingPathComponent("device.dat")
     let isNewVault = !FileManager.default.fileExists(atPath: deviceDataURL.path)
     let managedVaultPassword = ProcessInfo.processInfo.environment["LIDLLEAN_MANAGED_VAULT_PASSWORD"]
-    let vaultPassword = managedVaultPassword ?? (try secret("Local vault password (encrypts your signing key and device state): "))
+    let vaultPassword: String
+    if let managedVaultPassword {
+        vaultPassword = managedVaultPassword
+    } else {
+        vaultPassword = try secret("Local vault password (encrypts your signing key and device state): ")
+    }
     if isNewVault && managedVaultPassword == nil {
         let confirmation = try secret("Confirm new local vault password: ")
         try require(vaultPassword == confirmation, "Local vault passwords did not match. No device state was created.")
