@@ -220,6 +220,9 @@ func run() async throws {
     } else {
         vaultPassword = try secret("Local vault password (encrypts your signing key and device state): ")
     }
+    if managedVaultPassword != nil {
+        print("Managed vault device state: \(deviceDataURL.path) (existing: \(!isNewVault)).")
+    }
     if isNewVault && managedVaultPassword == nil {
         let confirmation = try secret("Confirm new local vault password: ")
         try require(vaultPassword == confirmation, "Local vault passwords did not match. No device state was created.")
