@@ -24,8 +24,16 @@ targets:
     info:
       path: App/Info.plist
       properties:
+        CFBundleDisplayName: LidlLean
         UILaunchStoryboardName: LaunchScreen
         UIRequiresFullScreen: true
+        NSCameraUsageDescription: LidlLean uses the camera to scan food barcodes.
+        NSHealthShareUsageDescription: LidlLean reads the Apple Health activity you select to put your food log in context.
+        NSHealthUpdateUsageDescription: LidlLean does not write Health data in this version.
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: com.alial.lidllean.health-sync
+            CFBundleURLSchemes: [lidllean]
     scheme:
       testTargets: [LidlLeanUITests]
   LidlLeanUITests:

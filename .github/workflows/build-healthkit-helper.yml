@@ -1,0 +1,49 @@
+name: Build experimental Windows HealthKit helper
+on:
+  workflow_dispatch:
+  push:
+    branches: [improve/daily-routine]
+    paths: ['tools/healthkit-signer/**', '.github/workflows/build-healthkit-helper.yml']
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Independent verifier tests
+        run: python -m unittest discover -s tools/healthkit-signer -p 'test_*.py' -v
+      - uses: actions/checkout@v4
+        with:
+          repository: SideStore/SideSign
+          ref: 10b446fc6fc47fe81b60879dfb126d0c8098ec29
+          path: .build/healthkit-upstream
+          persist-credentials: false
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
+        with:
+          arch: x64
+          sdk: '10.0.22621.0'
+      - uses: SwiftyLab/setup-swift@e14cfbba8f9bebb30a351919d4800e12aa69c57f
+        with:
+          swift-version: '6.0.3'
+      - name: Configure Swift Windows SDK modules
+        shell: pwsh
+        run: |
+          $include = 'C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0'
+          Copy-Item "$env:SDKROOT/usr/share/ucrt.modulemap" "$include/ucrt/module.modulemap"
+          Copy-Item "$env:SDKROOT/usr/share/winsdk.modulemap" "$include/um/module.modulemap"
+          Copy-Item "$env:SDKROOT/usr/share/ucrt.apinotes" "$include/ucrt/ucrt.apinotes" -ErrorAction SilentlyContinue
+          Copy-Item "$env:SDKROOT/usr/share/winsdk.apinotes" "$include/um/winsdk.apinotes" -ErrorAction SilentlyContinue
+      - name: Build without Apple credentials
+        shell: pwsh
+        run: tools/healthkit-signer/Build-Windows.ps1 -Source .build/healthkit-upstream -Output .build/healthkit-dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LidlLean-Windows-HealthKit-helper-experimental
+          path: .build/healthkit-dist/
+          if-no-files-found: error
+          retention-days: 7

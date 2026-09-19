@@ -98,6 +98,7 @@ jobs:
         run: |
           unzip -l build/LidlLean-unsigned.ipa | grep -q 'Payload/LidlLean.app/LidlLean$'
           plutil -lint build/LidlLean.xcarchive/Products/Applications/LidlLean.app/Info.plist
+          python3 tools/healthkit-signer/check_app_metadata.py build/LidlLean-unsigned.ipa
       - uses: actions/upload-artifact@v4
         with:
           name: LidlLean-unsigned-ipa

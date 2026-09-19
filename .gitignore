@@ -11,3 +11,6 @@ build/
 preview-artifacts/
 tools/ios-preview-mcp/.env
 tools/ios-preview-mcp/node_modules/
+tools/healthkit-signer/__pycache__/
+tools/healthkit-signer/apple-roots.pem
+tools/healthkit-signer/adi/
