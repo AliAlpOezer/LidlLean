@@ -202,7 +202,7 @@ func run() async throws {
         options[args[i]] = args[i + 1]
     }
     let app = URL(fileURLWithPath: options["--app"]!)
-    let state = URL(fileURLWithPath: options["--state"]!)
+    let state = URL(fileURLWithPath: options["--state"]!, isDirectory: true)
     let bundle = options["--bundle-id"]!
     let udid = options["--udid"]!
     let info = try PropertyListSerialization.propertyList(from: Data(contentsOf: app.appendingPathComponent("Info.plist")), format: nil) as? [String: Any]
