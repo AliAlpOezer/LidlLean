@@ -81,10 +81,8 @@ func localAuthDiagnosis(_ error: Error) -> String {
     if let error = error as? DeveloperPortalError, case .invalidAnisetteData = error {
         return "The local ADI emulator did not generate the complete headers Apple requires."
     }
-    if let error = error as NSError {
-        return "The local ADI provider returned a Windows runtime or network error (\(error.domain), \(error.code))."
-    }
-    return "The local ADI provider failed before Apple Account sign-in (\(String(reflecting: type(of: error))))."
+    let nsError = error as NSError
+    return "The local ADI provider returned a Windows runtime or network error (\(nsError.domain), \(nsError.code))."
 }
 
 @MainActor
