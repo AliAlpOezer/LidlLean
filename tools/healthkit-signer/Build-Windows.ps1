@@ -17,8 +17,8 @@ Expand-Archive -LiteralPath $archive -DestinationPath $deps -Force
 if ($LASTEXITCODE -ne 0) { throw 'zlib build failed.' }
 $zlibSearchRoots = @($deps, $env:VCPKG_INSTALLATION_ROOT, 'C:\vcpkg', 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\vcpkg') | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
 $zlibLibraries = @(foreach ($root in $zlibSearchRoots) {
-    Get-ChildItem -LiteralPath $root -Filter 'zlib.lib' -File -Recurse -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -match '[\\/]x64-windows-static[\\/]lib[\\/]zlib\.lib$' }
+    Get-ChildItem -LiteralPath $root -Filter '*.lib' -File -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match '[\\/]x64-windows-static[\\/]lib[\\/][^\\/]+\.lib$' }
 }) | Sort-Object FullName -Unique
 if ($zlibLibraries.Count -ne 1) { throw "Expected exactly one x64 static zlib library, found $($zlibLibraries.Count)." }
 $zlibLibrary = $zlibLibraries[0].FullName
