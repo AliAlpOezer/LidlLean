@@ -42,9 +42,24 @@ func profileGate(_ profile: ProvisioningProfile, bundle: String, team: String, u
 
 func twoFactor(_ request: TwoFactorRequest) async throws -> TwoFactorResponse {
     switch request {
-    case .selectDeliveryMethod:
-        return .requestTrustedDevice
-    case .trustedDevice, .sms, .voice:
+    case .selectDeliveryMethod(_, let phoneNumbers):
+        print("Two-factor authentication required: [1] trusted Apple device\(phoneNumbers.isEmpty ? "" : "  [2] SMS")")
+        let selection = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "1"
+        if selection.isEmpty || selection == "1" { return .requestTrustedDevice }
+        if selection == "2", let phone = phoneNumbers.first { return .requestSMS(phoneID: phone.id) }
+        throw Stop(reason: "Invalid two-factor delivery selection.")
+    case .trustedDevice(let error):
+        if error != nil { print("Apple rejected the previous verification code. Request and enter a fresh code.") }
+        let code = try secret("Apple verification code (blank cancels): ")
+        try require(code.count == 6 && code.allSatisfy(\.isNumber), "Expected a six-digit Apple code.")
+        return .verificationCode(code)
+    case .sms(_, _, let error):
+        if error != nil { print("Apple rejected the previous SMS code. Request and enter a fresh code.") }
+        let code = try secret("Apple SMS verification code (blank cancels): ")
+        try require(code.count == 6 && code.allSatisfy(\.isNumber), "Expected a six-digit Apple code.")
+        return .verificationCode(code)
+    case .voice(_, _, let error):
+        if error != nil { print("Apple rejected the previous voice-call code. Request and enter a fresh code.") }
         let code = try secret("Apple verification code (blank cancels): ")
         try require(code.count == 6 && code.allSatisfy(\.isNumber), "Expected a six-digit Apple code.")
         return .verificationCode(code)
