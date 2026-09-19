@@ -9,6 +9,7 @@ func ~= (pattern: [String]?, value: String) -> Bool {
 }
 
 struct Stop: Error { let reason: String }
+var failurePhase = "startup"
 
 func require(_ condition: Bool, _ reason: String) throws {
     if !condition { throw Stop(reason: reason) }
@@ -94,12 +95,15 @@ func run() async throws {
     let vaultPassword = try secret("Local vault password (encrypts your signing key and device state): ")
     let portalOptions = PortalOptions(deviceDataPath: state.appendingPathComponent("device.dat").path,
         deviceDataPassword: vaultPassword, localAnisetteDir: options["--libs"]!)
+    failurePhase = "local Apple-device authentication data"
     let (anisette, _, _, _) = try await CommandHandler.fetchAnisetteHeaders(options: portalOptions)
+    failurePhase = "Apple Account sign-in"
     let email = try line("Apple Account email:")
     let password = try secret("Apple Account password (never saved): ")
     let portal = DeveloperPortal()
     let auth = try await portal.authenticate(appleID: email, password: password, anisetteData: anisette,
         xcodeVersion: "26.0", accountRepairHandler: { _, _ in .cancel }, verificationHandler: twoFactor)
+    failurePhase = "developer-team lookup"
     let teams = try await portal.fetchTeams(for: auth.account, session: auth.session)
     try require(!teams.isEmpty, "Apple returned no developer teams. Accept the free developer agreement on Apple's website.")
     for (index, team) in teams.enumerated() { print("\(index + 1). \(team.name) [\(team.identifier)] \(team.type.displayName)") }
@@ -111,17 +115,20 @@ func run() async throws {
     print("May register this device/App ID and enable HealthKit. No apps are installed and no certificates revoked.")
     try require(try line("Type PROVISION to continue:") == "PROVISION", "Cancelled before account changes.")
 
+    failurePhase = "app identifier provisioning"
     let appIDs = try await portal.fetchAppIDs(for: team, session: auth.session)
     var appID: AppID
     if let existing = appIDs.first(where: { $0.bundleIdentifier == bundle }) { appID = existing }
     else { appID = try await portal.addAppID(withName: "LidlLean", bundleIdentifier: bundle, team: team, session: auth.session) }
     appID.features[Feature("HK421J6T7P")] = "true"
     appID = try await portal.updateAppID(appID, team: team, session: auth.session)
+    failurePhase = "iPhone registration"
     let devices = try await portal.fetchDevices(for: team, types: .iPhone, session: auth.session)
     if !devices.contains(where: { $0.identifier == udid }) {
         _ = try await portal.registerDevice(name: "LidlLean iPhone", identifier: udid, type: .iPhone, team: team, session: auth.session)
     }
 
+    failurePhase = "local signing key"
     let keyURL = state.appendingPathComponent("\(team.identifier).p12")
     let keyStore: KeyStore
     if FileManager.default.fileExists(atPath: keyURL.path) {
@@ -129,16 +136,19 @@ func run() async throws {
     } else {
         print("No local signing key for this team. Creating a certificate consumes a free-account slot.")
         try require(try line("Type CREATE to create one, or cancel and import your own encrypted P12:") == "CREATE", "Cancelled. No certificate created.")
+        failurePhase = "development certificate creation"
         keyStore = try await portal.addCertificate(machineName: "LidlLean Windows", type: .development, to: team, session: auth.session)
         try keyStore.exportP12(password: vaultPassword).write(to: keyURL, options: .atomic)
         print("Encrypted signing key saved. Keep this vault and password for renewals.")
     }
+    failurePhase = "HealthKit provisioning profile request"
     let profile = try await portal.downloadProvisioningProfile(for: appID, team: team, session: auth.session)
     try profileGate(profile, bundle: bundle, team: team.identifier, udid: udid)
     try require(profile.certificates.contains(where: { $0.serialNumberHex == keyStore.certificate.serialNumberHex }),
                 "Profile does not authorize the saved signing certificate. No revocation or replacement was attempted.")
     try profile.data.write(to: state.appendingPathComponent("last.mobileprovision"), options: .atomic)
     print("Apple's profile includes HealthKit. Signing the working copy...")
+    failurePhase = "local app signing"
     try await AppBundleSigner(team: team, keyStore: keyStore).signApp(at: app, provisioningProfiles: [profile])
     let verification = CodeSignKit.SignatureVerifier.verify(url: app, deep: true, strict: true)
     try require(verification.isValid, "Signer verification failed. Do not install the working copy.")
@@ -153,7 +163,7 @@ do {
     exit(1)
 } catch {
     // Upstream errors can contain raw server payloads. Never echo them.
-    print("STOP: Apple authentication, provisioning, or signing failed. No install was attempted.")
+    print("STOP: \(failurePhase) failed. No install was attempted.")
     print("Check connectivity, your vault password and Apple's account status. Do not send credentials or session files for diagnosis.")
     exit(1)
 }
