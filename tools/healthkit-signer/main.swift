@@ -50,6 +50,7 @@ func twoFactor(_ request: TwoFactorRequest) async throws -> TwoFactorResponse {
     }
 }
 
+@MainActor
 func run() async throws {
     let args = Array(CommandLine.arguments.dropFirst())
     if args == ["--help"] || args.isEmpty {
