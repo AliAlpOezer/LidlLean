@@ -57,6 +57,11 @@ func run() async throws {
         return
     }
     if args == ["--self-test"] {
+        let xml = "<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>com.apple.developer.healthkit</key><true/></dict></plist>"
+        guard let der = DEREncoder.encodePlistXML(xml) else { throw Stop(reason: "Self-test failed: DER encoding unavailable.") }
+        let boolean = Array(der.suffix(3))
+        try require(boolean.count == 3 && boolean[0] == 1 && boolean[1] == 1 && boolean[2] != 0,
+                    "Self-test failed: XML HealthKit Boolean became a non-Boolean DER value.")
         let empty = ProvisioningProfile(name: "test", uuid: UUID(), bundleIdentifier: "com.alial.lidllean",
             teamIdentifier: "TESTTEAM00", teamName: "Test", creationDate: Date(),
             expirationDate: Date().addingTimeInterval(600), deviceIDs: ["test"], data: Data())
@@ -66,7 +71,7 @@ func run() async throws {
         } catch let error as Stop {
             try require(error.reason.contains("does not authorize"), "Self-test failed.")
         }
-        print("PASS: missing HealthKit profile rejected; no network or credentials used.")
+        print("PASS: HealthKit Boolean preserved in DER; missing profile rejected; no network or credentials used.")
         return
     }
     let allowed: Set<String> = ["--app", "--state", "--libs", "--bundle-id", "--udid"]

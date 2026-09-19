@@ -16,8 +16,9 @@ Expand-Archive -LiteralPath $archive -DestinationPath $deps -Force
 & vcpkg install zlib:x64-windows-static "--x-install-root=$deps/vcpkg"
 if ($LASTEXITCODE -ne 0) { throw 'zlib build failed.' }
 $zlib = Join-Path $deps 'vcpkg/x64-windows-static'
-$zlibLibrary = @('zlib.lib', 'zlibstatic.lib', 'z.lib') | ForEach-Object { Join-Path "$zlib/lib" $_ } | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-if (-not $zlibLibrary) { throw "No supported zlib static library found in $zlib/lib" }
+$zlibLibraries = @(Get-ChildItem -LiteralPath "$zlib/lib" -Filter '*.lib')
+if ($zlibLibraries.Count -ne 1) { throw "Expected exactly one library from the isolated zlib install, found $($zlibLibraries.Count)." }
+$zlibLibrary = $zlibLibraries[0].FullName
 Write-Host "Using zlib library: $zlibLibrary"
 $env:INCLUDE = "$env:INCLUDE;$deps/include;$zlib/include"
 $env:LIB = "$env:LIB;$deps/lib;$zlib/lib"
