@@ -2,6 +2,7 @@
 import Foundation
 import SideSign
 import CodeSignKit
+import AnisetteKit
 
 // Required by the upstream CLI support files compiled into this target.
 func ~= (pattern: [String]?, value: String) -> Bool {
@@ -50,6 +51,36 @@ func twoFactor(_ request: TwoFactorRequest) async throws -> TwoFactorResponse {
     }
 }
 
+func localAuthDiagnosis(_ error: Error) -> String {
+    if let error = error as? AnisetteKit.AnisetteError {
+        switch error {
+        case .loaderFailed:
+            return "The local ADI emulator could not load the Android libraries."
+        case .symbolMissing:
+            return "The Android libraries do not expose an ADI symbol required by this emulator."
+        case .librariesNotFound:
+            return "The required Android ADI libraries were not found."
+        case .adiError(let code, _):
+            return "The local ADI library rejected the emulation request (code \(code))."
+        case .httpError(let statusCode, _):
+            return "Apple's device-auth endpoint returned HTTP \(statusCode)."
+        case .invalidArgument, .readFailure, .invalidResponse:
+            return "The local ADI emulator produced an invalid response."
+        }
+    }
+    if let error = error as? SideSign.AnisetteError {
+        switch error {
+        case .providerNotReady, .missingRequiredLibs:
+            return "The local ADI provider is not ready."
+        case .invalidAnisetteData:
+            return "The local provider returned incomplete authentication headers."
+        default:
+            return "The local ADI provider encountered a setup error."
+        }
+    }
+    return "The local ADI provider failed before Apple Account sign-in."
+}
+
 @MainActor
 func run() async throws {
     let args = Array(CommandLine.arguments.dropFirst())
@@ -74,6 +105,22 @@ func run() async throws {
             try require(error.reason.contains("does not authorize"), "Self-test failed.")
         }
         print("PASS: HealthKit Boolean preserved in DER; missing profile rejected; no network or credentials used.")
+        return
+    }
+    if args.count == 2 && args[0] == "--diagnose-local-auth" {
+        let libraries = URL(fileURLWithPath: args[1])
+        try require(AnisetteDataManager.validateLibrariesExist(at: libraries), "Required local ADI libraries are missing.")
+        let temporaryState = FileManager.default.temporaryDirectory.appendingPathComponent("LidlLean-anisette-diagnostic-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temporaryState) }
+        try FileManager.default.createDirectory(at: temporaryState, withIntermediateDirectories: true)
+        do {
+            let options = PortalOptions(deviceDataPath: temporaryState.appendingPathComponent("device.dat").path,
+                deviceDataPassword: "ephemeral-diagnostic-only", localAnisetteDir: libraries.path)
+            _ = try await CommandHandler.fetchAnisetteHeaders(options: options)
+            print("PASS: local ADI authentication completed. No Apple Account credentials, signing, or provisioning were used.")
+        } catch {
+            throw Stop(reason: "Local ADI diagnostic: \(localAuthDiagnosis(error))")
+        }
         return
     }
     let allowed: Set<String> = ["--app", "--state", "--libs", "--bundle-id", "--udid"]
