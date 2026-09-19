@@ -15,16 +15,14 @@ if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne 'B17F03EA800A0B552970FF98
 Expand-Archive -LiteralPath $archive -DestinationPath $deps -Force
 & vcpkg install zlib:x64-windows-static "--x-install-root=$deps/vcpkg"
 if ($LASTEXITCODE -ne 0) { throw 'zlib build failed.' }
-$zlibCandidates = @(
-    (Join-Path $deps 'vcpkg/installed/x64-windows-static'),
-    ($env:VCPKG_INSTALLATION_ROOT ? (Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed/x64-windows-static') : $null),
-    'C:\vcpkg\installed\x64-windows-static'
-) | Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'lib')) }
-$zlib = $zlibCandidates | Select-Object -First 1
-if (-not $zlib) { throw 'Could not locate the x64 static zlib install.' }
-$zlibLibraries = @(Get-ChildItem -LiteralPath "$zlib/lib" -Filter '*.lib')
-if ($zlibLibraries.Count -ne 1) { throw "Expected exactly one library from the zlib install, found $($zlibLibraries.Count)." }
+$zlibSearchRoots = @($deps, $env:VCPKG_INSTALLATION_ROOT, 'C:\vcpkg', 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\vcpkg') | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+$zlibLibraries = @(foreach ($root in $zlibSearchRoots) {
+    Get-ChildItem -LiteralPath $root -Filter 'zlib.lib' -File -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match '[\\/]x64-windows-static[\\/]lib[\\/]zlib\.lib$' }
+}) | Sort-Object FullName -Unique
+if ($zlibLibraries.Count -ne 1) { throw "Expected exactly one x64 static zlib library, found $($zlibLibraries.Count)." }
 $zlibLibrary = $zlibLibraries[0].FullName
+$zlib = Split-Path (Split-Path $zlibLibrary -Parent) -Parent
 Write-Host "Using zlib library: $zlibLibrary"
 $env:INCLUDE = "$env:INCLUDE;$deps/include;$zlib/include"
 $env:LIB = "$env:LIB;$deps/lib;$zlib/lib"
