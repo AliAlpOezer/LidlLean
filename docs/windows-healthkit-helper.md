@@ -3,7 +3,7 @@ type: decision
 title: Experimental Windows HealthKit signing helper
 description: Local-only provisioning experiment, credential boundary, and acceptance gates.
 tags: [healthkit, signing, windows, privacy]
-timestamp: 2026-09-18T00:00:00Z
+timestamp: 2026-09-19T00:00:00Z
 ---
 
 # Experimental Windows HealthKit signing helper
@@ -44,3 +44,9 @@ Rejected: implement Apple's authentication/cryptography ourselves, patch the clo
 - Blocking live acceptance: user-local Apple login, a profile actually authorizing HealthKit, and a physical iPhone permission prompt. No claim of success before these exist.
 
 See [helper instructions](../tools/healthkit-signer/README.md) and [signing boundary](healthkit-signing.md).
+
+## Verification checkpoint, 2026-09-19
+
+Twenty offline Python tests cover profile identity/expiry/HealthKit, unsafe archives, and full synthetic CMS signatures with tampering and unauthorized-certificate rejection. Synthetic certificates are test fixtures, not Apple-issued evidence. The first hosted Windows compile reproduced a missing pattern-matching operator after replacing upstream's entry point; the small upstream support operator was restored. Native build and account/device verification remain separate acceptance steps.
+
+The prior device IPA failed the new built-metadata check because XcodeGen regenerated its plist without Health/camera usage descriptions or the URL scheme. The fix lives in `project.yml`, with an archive regression check. Rejected: injecting privacy descriptions while signing, because the unsigned build should be correct independently of the signer.

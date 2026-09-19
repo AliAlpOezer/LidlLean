@@ -8,7 +8,23 @@ import tempfile
 import unittest
 import zipfile
 
-from inspect_ipa import HEALTH, archive_entries, check_profile, prepare, signature_blobs
+from inspect_ipa import HEALTH, archive_entries, check_profile, prepare, signature_blobs, der_entitlements
+
+
+class DERTests(unittest.TestCase):
+    def test_boolean_dictionary(self):
+        self.assertEqual(der_entitlements(bytes.fromhex("310830060c01780101ff")), {"x": True})
+        self.assertEqual(der_entitlements(bytes.fromhex("310830060c0178010101")), {"x": True})
+
+    def test_integer_is_not_boolean(self):
+        self.assertIs(type(der_entitlements(bytes.fromhex("310830060c0178020101"))["x"]), int)
+
+    def test_truncated_or_indefinite(self):
+        for data in [b"", b"\x31\x80", b"\x31\x03\x01\x01", b"\x31\0garbage"]:
+            with self.assertRaises(ValueError): der_entitlements(data)
+
+    def test_duplicate_keys(self):
+        with self.assertRaises(ValueError): der_entitlements(bytes.fromhex("311030060c017801010130060c0178010100"))
 
 
 class ProfileTests(unittest.TestCase):

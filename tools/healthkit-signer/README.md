@@ -31,13 +31,13 @@ The source overlay refuses a dirty or different upstream revision. Dependencies 
 
 You need PowerShell 7, Python 3.10+, and OpenSSL (Git for Windows includes it at `C:\Program Files\Git\usr\bin\openssl.exe`). The compiled artifact must include Swift runtime DLLs. `LidlLeanSigner.exe --self-test` exercises startup without credentials or network.
 
-Local Anisette needs the arm64 `libCoreADI.so` and `libstoreservicescore.so` libraries from an authentic Apple Music Android APK. Obtain the APK from Apple, not a random mirror. The helper does not redistribute these proprietary libraries. From the extracted helper folder:
+Local Anisette needs the arm64 `libCoreADI.so` and `libstoreservicescore.so` libraries from an authentic Apple Music Android APK. The helper does not redistribute these proprietary libraries. From the extracted helper folder, download directly from Apple's CDN and extract locally:
 
 ```powershell
-python ./Setup-LocalDependencies.py --apple-music-apk C:/Downloads/AppleMusic.apk --destination ./adi
+python ./Setup-LocalDependencies.py --download-from-apple --destination ./adi
 ```
 
-This extracts only those two libraries and downloads public root certificates from Apple's PKI website into `apple-roots.pem`. It prints library hashes but cannot establish APK authenticity for you. No login occurs here. If the APK layout has changed, setup stops.
+The CDN URL is also used by [SideStore's upstream setup instructions](https://github.com/SideStore/omnisette-server). There is no mirror fallback. Alternatively use `--apple-music-apk C:/Downloads/AppleMusic.apk` with your own authentic APK. Setup extracts only those two libraries and downloads public root certificates from Apple's PKI website into `apple-roots.pem`. It prints library hashes; an independently supplied APK's authenticity remains your responsibility. No login occurs here. If Apple's download or APK layout has changed, setup stops.
 
 ## Sign locally
 

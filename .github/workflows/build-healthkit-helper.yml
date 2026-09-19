@@ -23,6 +23,11 @@ jobs:
           ref: 10b446fc6fc47fe81b60879dfb126d0c8098ec29
           path: .build/healthkit-upstream
           persist-credentials: false
+      - uses: actions/cache@v4
+        with:
+          path: .build/healthkit-upstream/.build
+          key: windows-healthkit-swift603-${{ hashFiles('tools/healthkit-signer/main.swift', 'tools/healthkit-signer/prepare-source.py') }}
+          restore-keys: windows-healthkit-swift603-
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
         with:
           arch: x64
