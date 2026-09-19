@@ -17,7 +17,7 @@ foreach ($name in @('libCoreADI.so', 'libstoreservicescore.so')) {
     if (-not (Test-Path -LiteralPath (Join-Path $AdiLibraries $name))) { throw "Missing ADI library: $name" }
 }
 $python = (Get-Command python -ErrorAction Stop).Source
-$state = Join-Path $env:LOCALAPPDATA 'LidlLeanSigner'
+$state = Join-Path (Join-Path $env:LOCALAPPDATA 'LidlLeanSigner') 'managed-vault-v2'
 New-Item -ItemType Directory -Path $state -Force | Out-Null
 if ((Get-Item -LiteralPath $state).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Vault cannot be a link.' }
 $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
@@ -39,7 +39,7 @@ try {
     }
     if ([string]::IsNullOrWhiteSpace($managedVaultPassword)) { throw 'Windows-protected local vault password is empty.' }
     $env:LIDLLEAN_MANAGED_VAULT_PASSWORD = $managedVaultPassword
-    Write-Host 'Using a Windows-protected local signing vault.'
+    Write-Host 'Using a Windows-protected local signing vault (v2).'
     $run = Join-Path $state ([Guid]::NewGuid().ToString())
     $inputFile = (Resolve-Path -LiteralPath $Ipa).Path
     Write-Host 'Experimental signing. No installation or certificate revocation is performed.'
