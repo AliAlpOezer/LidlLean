@@ -23,6 +23,40 @@ actor TwoFactorProgress {
 
 let twoFactorProgress = TwoFactorProgress()
 
+func safeFailureReason(_ error: Error) -> String? {
+    if let error = error as? DeviceDataError {
+        switch error {
+        case .invalidPassword:
+            return "The local vault password does not unlock the saved device state"
+        case .corruptedData:
+            return "The saved local device state is corrupted"
+        default:
+            return "The local device-state vault could not be read"
+        }
+    }
+    if let error = error as? DeveloperPortalError {
+        switch error {
+        case .incorrectCredentials:
+            return "Apple rejected the Apple Account email or password"
+        case .appSpecificPasswordRequired:
+            return "Apple requires an app-specific password for this sign-in"
+        case .incorrectVerificationCode:
+            return "Apple rejected the verification code"
+        case .tooManyAttempts:
+            return "Apple temporarily rate-limited verification attempts"
+        case .invalid2FAResponse:
+            return "Apple returned an unusable two-factor response"
+        case .invalidAnisetteData:
+            return "Apple rejected the local device-authentication data"
+        case .userCancelled:
+            return "Two-factor authentication was cancelled"
+        default:
+            return nil
+        }
+    }
+    return nil
+}
+
 func require(_ condition: Bool, _ reason: String) throws {
     if !condition { throw Stop(reason: reason) }
 }
@@ -177,8 +211,14 @@ func run() async throws {
     try require(AnisetteDataManager.validateLibrariesExist(at: URL(fileURLWithPath: options["--libs"]!)),
                 "Local ADI libraries are missing. See README; no public anisette service is used.")
 
+    let deviceDataURL = state.appendingPathComponent("device.dat")
+    let isNewVault = !FileManager.default.fileExists(atPath: deviceDataURL.path)
     let vaultPassword = try secret("Local vault password (encrypts your signing key and device state): ")
-    let portalOptions = PortalOptions(deviceDataPath: state.appendingPathComponent("device.dat").path,
+    if isNewVault {
+        let confirmation = try secret("Confirm new local vault password: ")
+        try require(vaultPassword == confirmation, "Local vault passwords did not match. No device state was created.")
+    }
+    let portalOptions = PortalOptions(deviceDataPath: deviceDataURL.path,
         deviceDataPassword: vaultPassword, localAnisetteDir: options["--libs"]!)
     failurePhase = "Apple Account sign-in"
     let email = try line("Apple Account email:")
@@ -263,6 +303,10 @@ do {
     print("STOP: \(error.reason)")
     exit(1)
 } catch {
+    if let reason = safeFailureReason(error) {
+        print("STOP: \(reason). No install was attempted.")
+        exit(1)
+    }
     // Upstream errors can contain raw server payloads. Never echo them.
     print("STOP: \(failurePhase) failed. No install was attempted.")
     print("Check connectivity, your vault password and Apple's account status. Do not send credentials or session files for diagnosis.")
