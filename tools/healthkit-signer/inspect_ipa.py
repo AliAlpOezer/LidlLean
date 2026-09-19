@@ -99,7 +99,53 @@ def signature_blobs(binary):
     require({0, 5, 0x10000} <= blobs.keys(), "CodeDirectory, XML entitlements or CMS signature missing")
     require(blobs[5][:4] == bytes.fromhex("fade7171"), "Invalid entitlement blob")
     require(blobs[0x10000][:4] == bytes.fromhex("fade0b01"), "Invalid CMS blob")
+    require(len(blobs[0]) >= 44 and struct.unpack_from(">I", blobs[0], 32)[0] == start,
+            "CodeDirectory does not seal the entire executable")
+    require(not any(0x1000 <= key < 0x10000 for key in blobs), "Alternate CodeDirectories are not supported")
     return blobs
+
+
+def der_entitlements(data):
+    def value(offset, end, depth=0):
+        require(depth < 20 and offset + 2 <= end, "Invalid DER structure")
+        tag, length = data[offset:offset + 2]
+        offset += 2
+        if length & 0x80:
+            count = length & 0x7f
+            require(0 < count <= 4 and offset + count <= end, "Invalid DER length")
+            length = int.from_bytes(data[offset:offset + count], "big")
+            offset += count
+        stop = offset + length
+        require(stop <= end, "Truncated DER value")
+        raw = data[offset:stop]
+        if tag == 1:
+            require(raw in (b"\0", b"\1", b"\xff"), "Invalid DER Boolean")
+            result = raw != b"\0"
+        elif tag == 2:
+            require(0 < length <= 8, "Invalid DER integer")
+            result = int.from_bytes(raw, "big", signed=True)
+        elif tag == 0x0c:
+            result = raw.decode("utf-8")
+        elif tag == 4:
+            result = raw
+        elif tag in (0x30, 0x31):
+            result = []
+            while offset < stop:
+                child, offset = value(offset, stop, depth + 1)
+                result.append(child)
+            if tag == 0x31:
+                pairs = result
+                result = {}
+                for pair in pairs:
+                    require(isinstance(pair, list) and len(pair) == 2 and isinstance(pair[0], str), "Invalid DER dictionary")
+                    require(pair[0] not in result, "Duplicate DER key")
+                    result[pair[0]] = pair[1]
+        else:
+            raise ValueError("Unsupported DER entitlement type")
+        return result, stop
+    result, end = value(0, len(data))
+    require(end == len(data) and isinstance(result, dict), "Invalid DER entitlement root")
+    return result
 
 
 def check_profile(profile, entitlements, bundle, udid, now=None):
@@ -136,7 +182,14 @@ def check_code(binary, blobs, info, resources):
     for i in range(slots):
         expected = cd[hash_offset + i * hash_size:hash_offset + (i + 1) * hash_size]
         require(algorithm(binary[i * page:min((i + 1) * page, limit)]).digest()[:hash_size] == expected, "Executable page hash mismatch")
-    for slot, data in [(1, info), (3, resources), (5, blobs[5])]:
+    metadata = [(1, info), (3, resources), (5, blobs[5])]
+    if 7 in blobs:
+        require(blobs[7][:4] == bytes.fromhex("fade7172"), "Invalid DER entitlement blob")
+        der = der_entitlements(blobs[7][8:])
+        xml = plistlib.loads(blobs[5][8:])
+        require(der.get(HEALTH) is True and der == xml, "XML and DER entitlements differ")
+        metadata.append((7, blobs[7]))
+    for slot, data in metadata:
         require(specials >= slot, "Required special hash slot missing")
         expected = cd[hash_offset - slot * hash_size:hash_offset - (slot - 1) * hash_size]
         require(algorithm(data).digest()[:hash_size] == expected, "Signed metadata hash mismatch")
@@ -162,7 +215,7 @@ def inspect(app, bundle, udid, openssl, roots):
         openssl_run(openssl, ["cms", "-verify", "-binary", "-inform", "DER", "-in", app / "embedded.mobileprovision",
             "-CAfile", roots, "-purpose", "any", "-out", profile_xml, "-signer", signer])
         subject = openssl_run(openssl, ["x509", "-in", signer, "-noout", "-subject", "-nameopt", "RFC2253"]).decode()
-        require("CN=Apple iPhone OS Provisioning Profile Signing" in subject, "Unexpected profile signing authority")
+        require(re.search(r"(?:^|,)CN=Apple iPhone OS Provisioning Profile Signing(?:,|$)", subject.removeprefix("subject=").strip()), "Unexpected profile signing authority")
         profile = plistlib.loads(profile_xml.read_bytes())
         entitlements = plistlib.loads(blobs[5][8:])
         expiry = check_profile(profile, entitlements, bundle, udid)

@@ -3,6 +3,11 @@ import Foundation
 import SideSign
 import CodeSignKit
 
+// Required by the upstream CLI support files compiled into this target.
+func ~= (pattern: [String]?, value: String) -> Bool {
+    pattern?.contains(value) ?? false
+}
+
 struct Stop: Error { let reason: String }
 
 func require(_ condition: Bool, _ reason: String) throws {
