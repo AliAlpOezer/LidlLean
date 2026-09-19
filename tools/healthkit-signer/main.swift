@@ -10,7 +10,18 @@ func ~= (pattern: [String]?, value: String) -> Bool {
 }
 
 struct Stop: Error { let reason: String }
+struct RefreshAppleAuthentication: Error {}
 var failurePhase = "startup"
+
+actor TwoFactorProgress {
+    private var submittedCode = false
+
+    func reset() { submittedCode = false }
+    func recordCodeSubmission() { submittedCode = true }
+    func hasSubmittedCode() -> Bool { submittedCode }
+}
+
+let twoFactorProgress = TwoFactorProgress()
 
 func require(_ condition: Bool, _ reason: String) throws {
     if !condition { throw Stop(reason: reason) }
@@ -43,7 +54,11 @@ func profileGate(_ profile: ProvisioningProfile, bundle: String, team: String, u
 func twoFactor(_ request: TwoFactorRequest) async throws -> TwoFactorResponse {
     switch request {
     case .selectDeliveryMethod(_, let phoneNumbers):
+        if await twoFactorProgress.hasSubmittedCode() {
+            throw RefreshAppleAuthentication()
+        }
         print("Two-factor authentication required: [1] trusted Apple device\(phoneNumbers.isEmpty ? "" : "  [2] SMS")")
+        print("Select delivery method [1]:", terminator: " ")
         let selection = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "1"
         if selection.isEmpty || selection == "1" { return .requestTrustedDevice }
         if selection == "2", let phone = phoneNumbers.first { return .requestSMS(phoneID: phone.id) }
@@ -52,16 +67,19 @@ func twoFactor(_ request: TwoFactorRequest) async throws -> TwoFactorResponse {
         if error != nil { print("Apple rejected the previous verification code. Request and enter a fresh code.") }
         let code = try secret("Apple verification code (blank cancels): ")
         try require(code.count == 6 && code.allSatisfy(\.isNumber), "Expected a six-digit Apple code.")
+        await twoFactorProgress.recordCodeSubmission()
         return .verificationCode(code)
     case .sms(_, _, let error):
         if error != nil { print("Apple rejected the previous SMS code. Request and enter a fresh code.") }
         let code = try secret("Apple SMS verification code (blank cancels): ")
         try require(code.count == 6 && code.allSatisfy(\.isNumber), "Expected a six-digit Apple code.")
+        await twoFactorProgress.recordCodeSubmission()
         return .verificationCode(code)
     case .voice(_, _, let error):
         if error != nil { print("Apple rejected the previous voice-call code. Request and enter a fresh code.") }
         let code = try secret("Apple verification code (blank cancels): ")
         try require(code.count == 6 && code.allSatisfy(\.isNumber), "Expected a six-digit Apple code.")
+        await twoFactorProgress.recordCodeSubmission()
         return .verificationCode(code)
     }
 }
@@ -162,16 +180,32 @@ func run() async throws {
     let vaultPassword = try secret("Local vault password (encrypts your signing key and device state): ")
     let portalOptions = PortalOptions(deviceDataPath: state.appendingPathComponent("device.dat").path,
         deviceDataPassword: vaultPassword, localAnisetteDir: options["--libs"]!)
-    failurePhase = "local Apple-device authentication data"
-    let (anisette, _, _, _) = try await CommandHandler.fetchAnisetteHeaders(options: portalOptions)
     failurePhase = "Apple Account sign-in"
     let email = try line("Apple Account email:")
     let password = try secret("Apple Account password (never saved): ")
     let portal = DeveloperPortal()
-    let auth = try await portal.authenticate(appleID: email, password: password, anisetteData: anisette,
-        xcodeVersion: "26.0", accountRepairHandler: { _, _ in .cancel }, verificationHandler: twoFactor)
+    var auth: AuthSession?
+    var refreshedAfterTwoFactor = false
+    while auth == nil {
+        failurePhase = "local Apple-device authentication data"
+        let (anisette, _, _, _) = try await CommandHandler.fetchAnisetteHeaders(options: portalOptions)
+        await twoFactorProgress.reset()
+        failurePhase = "Apple Account sign-in"
+        do {
+            auth = try await portal.authenticate(appleID: email, password: password, anisetteData: anisette,
+                xcodeVersion: "26.0", accountRepairHandler: { _, _ in .cancel }, verificationHandler: twoFactor)
+        } catch is RefreshAppleAuthentication {
+            try require(!refreshedAfterTwoFactor,
+                        "Apple requested another two-factor sign-in after a validated code. Stopped to avoid a verification loop.")
+            refreshedAfterTwoFactor = true
+            print("Apple requested a fresh post-verification session. Refreshing local device authentication once; do not enter another code yet.")
+        } catch {
+            throw error
+        }
+    }
+    let authenticated = auth!
     failurePhase = "developer-team lookup"
-    let teams = try await portal.fetchTeams(for: auth.account, session: auth.session)
+    let teams = try await portal.fetchTeams(for: authenticated.account, session: authenticated.session)
     try require(!teams.isEmpty, "Apple returned no developer teams. Accept the free developer agreement on Apple's website.")
     for (index, team) in teams.enumerated() { print("\(index + 1). \(team.name) [\(team.identifier)] \(team.type.displayName)") }
     let selection = Int(try line("Select the Personal Team number:")) ?? 0
@@ -183,16 +217,16 @@ func run() async throws {
     try require(try line("Type PROVISION to continue:") == "PROVISION", "Cancelled before account changes.")
 
     failurePhase = "app identifier provisioning"
-    let appIDs = try await portal.fetchAppIDs(for: team, session: auth.session)
+    let appIDs = try await portal.fetchAppIDs(for: team, session: authenticated.session)
     var appID: AppID
     if let existing = appIDs.first(where: { $0.bundleIdentifier == bundle }) { appID = existing }
-    else { appID = try await portal.addAppID(withName: "LidlLean", bundleIdentifier: bundle, team: team, session: auth.session) }
+    else { appID = try await portal.addAppID(withName: "LidlLean", bundleIdentifier: bundle, team: team, session: authenticated.session) }
     appID.features[Feature("HK421J6T7P")] = "true"
-    appID = try await portal.updateAppID(appID, team: team, session: auth.session)
+    appID = try await portal.updateAppID(appID, team: team, session: authenticated.session)
     failurePhase = "iPhone registration"
-    let devices = try await portal.fetchDevices(for: team, types: .iPhone, session: auth.session)
+    let devices = try await portal.fetchDevices(for: team, types: .iPhone, session: authenticated.session)
     if !devices.contains(where: { $0.identifier == udid }) {
-        _ = try await portal.registerDevice(name: "LidlLean iPhone", identifier: udid, type: .iPhone, team: team, session: auth.session)
+        _ = try await portal.registerDevice(name: "LidlLean iPhone", identifier: udid, type: .iPhone, team: team, session: authenticated.session)
     }
 
     failurePhase = "local signing key"
@@ -204,12 +238,12 @@ func run() async throws {
         print("No local signing key for this team. Creating a certificate consumes a free-account slot.")
         try require(try line("Type CREATE to create one, or cancel and import your own encrypted P12:") == "CREATE", "Cancelled. No certificate created.")
         failurePhase = "development certificate creation"
-        keyStore = try await portal.addCertificate(machineName: "LidlLean Windows", type: .development, to: team, session: auth.session)
+        keyStore = try await portal.addCertificate(machineName: "LidlLean Windows", type: .development, to: team, session: authenticated.session)
         try keyStore.exportP12(password: vaultPassword).write(to: keyURL, options: .atomic)
         print("Encrypted signing key saved. Keep this vault and password for renewals.")
     }
     failurePhase = "HealthKit provisioning profile request"
-    let profile = try await portal.downloadProvisioningProfile(for: appID, team: team, session: auth.session)
+    let profile = try await portal.downloadProvisioningProfile(for: appID, team: team, session: authenticated.session)
     try profileGate(profile, bundle: bundle, team: team.identifier, udid: udid)
     try require(profile.certificates.contains(where: { $0.serialNumberHex == keyStore.certificate.serialNumberHex }),
                 "Profile does not authorize the saved signing certificate. No revocation or replacement was attempted.")
