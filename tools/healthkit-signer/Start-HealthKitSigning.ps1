@@ -25,6 +25,21 @@ $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 if ($LASTEXITCODE -ne 0) { throw 'Could not restrict vault permissions.' }
 $lock = [IO.File]::Open((Join-Path $state 'run.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
 try {
+    $managedVaultPath = Join-Path $state 'vault-password.dpapi'
+    if (Test-Path -LiteralPath $managedVaultPath -PathType Leaf) {
+        $encrypted = [IO.File]::ReadAllBytes($managedVaultPath)
+        $vaultBytes = [Security.Cryptography.ProtectedData]::Unprotect($encrypted, $null, [Security.Cryptography.DataProtectionScope]::CurrentUser)
+        $managedVaultPassword = [Text.Encoding]::UTF8.GetString($vaultBytes)
+    } else {
+        $random = [byte[]]::new(32)
+        [Security.Cryptography.RandomNumberGenerator]::Fill($random)
+        $managedVaultPassword = [Convert]::ToBase64String($random)
+        $encrypted = [Security.Cryptography.ProtectedData]::Protect([Text.Encoding]::UTF8.GetBytes($managedVaultPassword), $null, [Security.Cryptography.DataProtectionScope]::CurrentUser)
+        [IO.File]::WriteAllBytes($managedVaultPath, $encrypted)
+    }
+    if ([string]::IsNullOrWhiteSpace($managedVaultPassword)) { throw 'Windows-protected local vault password is empty.' }
+    $env:LIDLLEAN_MANAGED_VAULT_PASSWORD = $managedVaultPassword
+    Write-Host 'Using a Windows-protected local signing vault.'
     $run = Join-Path $state ([Guid]::NewGuid().ToString())
     $inputFile = (Resolve-Path -LiteralPath $Ipa).Path
     Write-Host 'Experimental signing. No installation or certificate revocation is performed.'
@@ -44,5 +59,6 @@ try {
     Write-Host 'Not installed. Device acceptance and the Health permission prompt remain unverified.'
     Write-Host 'Do not re-sign this IPA with Sideloadly: that can replace the checked profile.'
 } finally {
+    Remove-Item Env:LIDLLEAN_MANAGED_VAULT_PASSWORD -ErrorAction SilentlyContinue
     $lock.Dispose()
 }
